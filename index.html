@@ -1095,6 +1095,10 @@ function viewSettings(){
     + '</div>'
     + '<div class="small" style="margin-top:8px">数据端到端加密（AES-GCM），云端只存密文；登录密码即解密钥匙，丢失不可恢复，请定期导出备份。</div>'
     + '</div>'
+    + '<div class="card"><h3>🔊 朗读测试（背单词用）</h3>'
+    + '<div class="small" style="margin-bottom:10px">点击单词卡片会调用浏览器内置 TTS 朗读英文。下面这个按钮用来检测你的浏览器是否有声音。</div>'
+    + '<button class="btn sub" onclick="speakTest()">🔊 测试朗读</button> '
+    + '<span class="small">听不到声音？→ 检查系统音量；如系统是 Linux 或精简版 Windows，可能没装英文 TTS 引擎，换 Chrome / Edge / Safari 自带。</span></div>'
     + '<div class="card"><h3>💾 备份</h3>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
     + '<button class="btn sub" onclick="exportBackup()">导出备份(JSON)</button>'
@@ -1436,13 +1440,55 @@ function studyKey(en){ return String(en==null?'':en).toLowerCase(); }
 /* 朗读与双击判断（背单词交互用） */
 var _lastClickAt = 0;
 function isDoubleClickGap(){ var now = Date.now(); var dbl = (now - _lastClickAt) < 320; _lastClickAt = now; return dbl; }
+var _voices = [];
+var _speakTimer = null;
+function _ttsReady(){ return ('speechSynthesis' in window) && !!window.speechSynthesis; }
+function _loadVoices(){
+  if(!_ttsReady()) return;
+  try{ _voices = window.speechSynthesis.getVoices() || []; }catch(e){ _voices = []; }
+  return _voices;
+}
+function _pickVoice(){
+  if(_voices.length === 0) _loadVoices();
+  for(var i=0;i<_voices.length;i++){
+    if(_voices[i].lang && _voices[i].lang.indexOf('en')===0){ return _voices[i]; }
+  }
+  return null;
+}
+if(_ttsReady()){
+  _loadVoices();
+  // Chrome 异步加载，等事件；旧浏览器 onvoiceschanged 只读，定时轮询兜底
+  try{ window.speechSynthesis.onvoiceschanged = function(){ _loadVoices(); }; }catch(e){}
+  if(!_voices.length){
+    var _iv = setInterval(function(){ _loadVoices(); if(_voices.length){ clearInterval(_iv); _iv=null; } }, 200);
+    setTimeout(function(){ if(_iv){ clearInterval(_iv); _iv=null; } }, 4000);
+  }
+}
 function speakWord(en){
   if(!en) return;
-  if(!('speechSynthesis' in window) || !window.speechSynthesis) return;
-  try{ window.speechSynthesis.cancel(); }catch(e){}
-  var u = new SpeechSynthesisUtterance(String(en));
-  u.lang = 'en-US';
-  try{ window.speechSynthesis.speak(u); }catch(e){}
+  if(!_ttsReady()) return;
+  if(_speakTimer){ clearTimeout(_speakTimer); _speakTimer=null; }
+  // 不立刻 cancel：让上一句在并发快速点击时仍能完整播完；50ms 延迟也避开 cancel+speak 抢队列
+  _speakTimer = setTimeout(function(){
+    try{ window.speechSynthesis.cancel(); }catch(e){}
+    var u = new SpeechSynthesisUtterance(String(en));
+    var v = _pickVoice();
+    if(v) u.voice = v;
+    u.lang = v ? v.lang : 'en-US';
+    u.rate = 0.9; u.volume = 1; u.pitch = 1;
+    try{ window.speechSynthesis.speak(u); }catch(e){}
+  }, 30);
+}
+function speakTest(){
+  if(!_ttsReady()){ alert('当前浏览器不支持语音合成（无 speechSynthesis API）。建议换 Chrome / Edge / Safari。'); return; }
+  if(_voices.length===0) _loadVoices();
+  var info = _voices.length ? ('已加载 '+_voices.length+' 个语音引擎') : '⚠️ 当前没有可用语音引擎（系统可能未装 TTS）';
+  var enList = _voices.filter(function(v){ return v.lang && v.lang.indexOf('en')===0; }).map(function(v){ return v.name+' ('+v.lang+')'; }).slice(0,5);
+  var listTxt = enList.length ? ('\n英文语音：' + enList.join(' / ')) : '\n（无英文语音）';
+  speakWord('Hello, this is a speech test.');
+  setTimeout(function(){
+    alert(info + listTxt + (enList.length ? '\n\n如果没听到声音，请检查系统音量/浏览器是否被静音。' : '\n\n需要装一个英文 TTS 引擎（见下方说明）。'));
+  }, 100);
 }
 
 /* ---- 词库来源与取词 ---- */
