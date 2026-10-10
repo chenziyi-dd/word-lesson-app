@@ -717,7 +717,7 @@ function viewToday(){
 }
 function reviewItemHTML(it, showStudent){
   var l = it.lesson;
-  var tag = '<span class="round-tag'+(it.late?' hot':'')">'+(it.late?'逾期':'第'+(it.idx+1)+'轮')+' · 第'+it.round.offset+'天</span>';
+  var tag = '<span class="round-tag'+(it.late?' hot':'')+'"'+'>'+(it.late?'逾期':'第'+(it.idx+1)+'轮')+' · 第'+it.round.offset+'天</span>';
   var h = '<div class="review-item'+(it.late?' late':'')+'"><div class="top"><div><span class="stu">'+(showStudent?esc(studentName(l))+' · ':'')+fmtShort(l.date)+' 课</span> '+tag+'</div>'
     + '<span class="small">'+(it.late?'原定 ':'') + fmtShort(it.round.dueDate)+'</span></div>'
     + '<div style="margin-top:7px">'
