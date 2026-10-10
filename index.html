@@ -85,6 +85,40 @@ table.tbl td{padding:8px 4px;border-bottom:1px solid #eef1f6;}
 pre.bk{background:#f5f7fa;border-radius:10px;padding:10px;font-size:11px;overflow:auto;max-height:180px;}
 .hl{color:#d0402a;font-weight:700;}
 .small{font-size:12px;color:#8a93a5;}
+/* 背单词 */
+.mode-card{display:flex;align-items:center;gap:12px;border:1px solid #e8ecf3;border-radius:12px;padding:13px;margin-bottom:9px;background:#fff;cursor:pointer;}
+.mode-card:active{background:#f7f9ff;}
+.mode-card .ic{font-size:22px;font-weight:800;color:#2f6bff;flex:none;width:26px;text-align:center;}
+.mode-card .tt{font-size:15px;font-weight:700;}
+.mode-card .dd{font-size:12px;color:#8a93a5;margin-top:2px;}
+.mode-card .go{margin-left:auto;color:#2f6bff;font-size:13px;font-weight:600;flex:none;}
+.sbar{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+.sbar .sb{background:#f1f3f8;border-radius:8px;padding:4px 10px;font-size:12px;color:#5b6475;}
+.sbar .sb.g{background:#e4f7ec;color:#149355;}
+.sbar .sb.r{background:#ffece6;color:#d0402a;}
+.sw{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid #e8ecf3;border-radius:10px;margin-bottom:7px;cursor:pointer;background:#fff;}
+.sw .sw-en{font-size:16px;font-weight:600;flex:0 0 auto;}
+.sw .sw-cn{display:none;font-size:13px;color:#7d8cd0;flex:1;}
+.sw.peek .sw-cn{display:block;}
+.sw.sel{border-color:#2f6bff;background:#eef3ff;}
+.sw.sel .sw-en{color:#2a4dbb;}
+.sw .sw-eye{margin-left:auto;color:#b9c1d0;font-size:15px;padding:0 3px;flex:none;}
+.lc{background:#fff;border-radius:16px;padding:40px 18px;text-align:center;box-shadow:0 2px 10px rgba(28,35,51,.06);cursor:pointer;user-select:none;}
+.lc .lc-en{font-size:36px;font-weight:800;letter-spacing:.5px;word-break:break-word;line-height:1.25;}
+.lc .lc-cn{display:none;margin-top:18px;font-size:17px;color:#2a4dbb;font-weight:600;}
+.lc.peek .lc-cn{display:block;}
+.rw{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #e8ecf3;border-radius:10px;margin-bottom:7px;background:#fff;cursor:pointer;}
+.rw .rw-n{color:#a8b0c0;font-size:12px;flex:0 0 20px;}
+.rw .rw-en{font-size:16px;font-weight:600;flex:1;}
+.rw .rw-cn{display:none;font-size:13px;color:#7d8cd0;flex:0 0 auto;max-width:45%;text-align:right;}
+.rw.peek .rw-cn{display:block;}
+.rw.ok{border-color:#9fd9b8;background:#f6fdf9;}
+.rw.no{border-color:#f0b5a4;background:#fffaf8;}
+.rw .rw-b{border:0;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:pointer;font-family:inherit;flex:none;line-height:1;}
+.rw .rw-ok{background:#e4f7ec;color:#149355;}
+.rw .rw-ok.on{background:#18a058;color:#fff;}
+.rw .rw-no{background:#ffece6;color:#d0402a;}
+.rw .rw-no.on{background:#e0562f;color:#fff;}
 </style>
 </head>
 <body>
@@ -261,6 +295,25 @@ function mergeCloudData(remote){
   (remote.logs||[]).forEach(function(l){ var k=(l.time||'')+'|'+(l.type||'')+'|'+(l.text||''); if(!seen[k]){ seen[k]=1; logs.push(l); } });
   (data.logs||[]).forEach(function(l){ var k=(l.time||'')+'|'+(l.type||'')+'|'+(l.text||''); if(!seen[k]){ seen[k]=1; logs.push(l); } });
   data.logs = logs;
+  /* 背单词：掌握度按单词合并（取进度更高的一条）；本轮清单取更新时间较晚的；记录按 id 并集 */
+  if(remote.studyStatus && typeof remote.studyStatus==='object'){
+    data.studyStatus = data.studyStatus || {};
+    for(var sk in remote.studyStatus){
+      if(!Object.prototype.hasOwnProperty.call(remote.studyStatus, sk)) continue;
+      var rs=remote.studyStatus[sk], ms=data.studyStatus[sk];
+      if(!rs) continue;
+      if(!ms){ data.studyStatus[sk]=rs; continue; }
+      var rv=(rs.stage||0)*10000+(rs.right||0)*10+(rs.wrong||0);
+      var mv=(ms.stage||0)*10000+(ms.right||0)*10+(ms.wrong||0);
+      if(rv>mv) data.studyStatus[sk]=rs;
+    }
+  }
+  if(remote.studyRound && (!data.studyRound || String(remote.studyRound.at||'')>String(data.studyRound.at||''))) data.studyRound = remote.studyRound;
+  if(data.studyRound===undefined) data.studyRound = null;
+  var sessSeen={}, sessArr=[];
+  (data.studySessions||[]).forEach(function(x){ if(x && x.id && !sessSeen[x.id]){ sessSeen[x.id]=1; sessArr.push(x); } });
+  (remote.studySessions||[]).forEach(function(x){ if(x && x.id && !sessSeen[x.id]){ sessSeen[x.id]=1; sessArr.push(x); } });
+  data.studySessions = sessArr;
   if(remote.updatedAt && (!data.updatedAt || remote.updatedAt>data.updatedAt)) data.updatedAt=remote.updatedAt;
 }
 function cloudPush(silent){
@@ -356,6 +409,189 @@ function addDays(dateStr, n){
 }
 function fmtShort(dateStr){ return String(dateStr||'').slice(5).replace('-','/'); }
 
+/* ---------- 内置词库（可在「背单词」中直接选用） ---------- */
+var PRESET_LIBS = {
+  "外研版选修四": {
+    "name": "外研版选修四（选择性必修第四册）",
+    "units": [
+      {"n": "Unit 1 Looking forward 展望未来", "w": [
+        ["boyhood", "n. （男性的）童年时期，少年时代"],
+        ["ambition", "n. 追求，理想；雄心，抱负"],
+        ["trainee", "n. 接受工作培训的人；实习生"],
+        ["correspondent", "n. 通讯员，记者"],
+        ["bullfighting", "n. 斗牛"],
+        ["historical", "adj. （有关）历史的"],
+        ["detective", "n. 私家侦探"],
+        ["ultimately", "adv. 最后，最终"],
+        ["dot", "n. 点，小圆点"],
+        ["backwards", "adv. 往回，向后"],
+        ["admission", "n. 允许进入（加入）"],
+        ["participation", "n. 参加，参与"],
+        ["complex", "adj. 复杂的"],
+        ["diverge", "v. （道路）岔开，分开"],
+        ["undergrowth", "n. 下层灌木丛"],
+        ["numerous", "adj. 许多的，很多的"],
+        ["commercial", "n. （电视 / 电台）商业广告 adj. 商业的"],
+        ["thoughtful", "adj. 深思的；体贴的"],
+        ["symbolize", "v. 象征，代表"],
+        ["alternative", "n. 可供选择的事物 adj. 可供替代的"],
+        ["dilemma", "n. 进退两难的境地，困境"],
+        ["arise", "v. （由……）引起；出现（arose, arisen）"],
+        ["circumstance", "n. 情况，情形"],
+        ["mixture", "n. 混合；混合体"],
+        ["affection", "n. 喜爱，钟爱"],
+        ["qualified", "adj. 合格的，胜任的"],
+        ["fluency", "n. 熟练，流利"],
+        ["sincerely", "adv. 由衷地，真诚地"],
+        ["refreshments", "n. 茶点，点心饮料"],
+        ["shift", "n. （轮班）当班时间 v. 转移"],
+        ["take action", "采取行动"],
+        ["make up one’s mind", "拿定主意"],
+        ["pass up", "放过，错过（机会）"],
+        ["have second thoughts", "（对决定）犹豫、产生怀疑"],
+        ["put off", "推迟"],
+        ["reject out of hand", "坚决拒绝，彻底否决"],
+        ["weigh up", "仔细考虑，权衡"],
+        ["yours sincerely", "谨上（书信结尾）"]
+      ]},
+      {"n": "Unit 2 Lessons in life 人生的教训", "w": [
+        ["weaken", "v. （使）虚弱；减弱"],
+        ["pessimistic", "adj. 悲观的，悲观主义的"],
+        ["anticipate", "v. 预期，预料"],
+        ["possession", "n. 财产，财物；拥有"],
+        ["abnormal", "adj. 不正常的，反常的"],
+        ["widespread", "adj. 广泛流传的"],
+        ["recognition", "n. 承认，认可；识别"],
+        ["phrase", "n. 成语，习语；警句"],
+        ["cooperate", "v. 合作，协作"],
+        ["fee", "n. 工作酬金，服务费"],
+        ["outstretched", "adj. 张开的，伸开的"],
+        ["cram", "v. 挤满，塞满；临时死记硬背"],
+        ["pure", "adj. 纯净的，洁净的"],
+        ["transparent", "adj. 透明的；显而易见的"],
+        ["vexed", "adj. 恼火的；棘手的"],
+        ["absurd", "adj. 荒唐的，愚蠢的"],
+        ["lean", "v. 倚，靠；倾斜"],
+        ["Madame", "n. 夫人，太太，女士"],
+        ["stroke", "v. 轻抚，抚摸 n. 中风；一击"],
+        ["instinctively", "adv. 本能地"],
+        ["despair", "n. &v. 绝望"],
+        ["luxury", "n. 奢华，奢侈；奢侈品"],
+        ["be reunited with", "与…… 重聚"]
+      ]},
+      {"n": "Unit 3 The world meets China 世界遇见中国", "w": [
+        ["gateway", "n. 通向…… 的门户"],
+        ["oasis", "n. （沙漠）绿洲"],
+        ["glorious", "adj. 辉煌的，壮丽的"],
+        ["boast", "v. 自豪地拥有；吹嘘"],
+        ["grotto", "n. 小洞穴，石窟"],
+        ["testimony", "n. 证据；证明"],
+        ["statue", "n. 雕像；塑像"],
+        ["mural", "n. 壁画"],
+        ["religious", "adj. 宗教的"],
+        ["Apsaras", "n. 飞天"],
+        ["immortal", "n. 神，不朽者 adj. 不朽的"],
+        ["heavenly", "adj. 天国的；极好的"],
+        ["peak", "n. 高峰，顶点；山峰 v. 达到顶峰"],
+        ["Taoist priest", "道士"],
+        ["scroll", "n. 纸卷，卷轴"],
+        ["ceramics", "n. 陶瓷制品"],
+        ["crossroads", "n. 汇集地；十字路口"],
+        ["expo", "n. 展览会，博览会"],
+        ["strengthen", "v. 加强，巩固"],
+        ["coverage", "n. 覆盖范围；新闻报道"],
+        ["scholar", "n. 学者"],
+        ["department", "n. （大学）系，部；科室"],
+        ["institute", "n. 学院；研究院"],
+        ["Sinologist", "n. 汉学家"],
+        ["temple", "n. 寺庙，庙宇"],
+        ["tune", "n. 曲调，旋律"],
+        ["shepherd", "n. 牧羊人"]
+      ]},
+      {"n": "Unit 4 Everyday economics 日常经济学", "w": [
+        ["forehead", "n. 额，前额"],
+        ["blank", "adj. 无表情的，木然的；空白的 n. 空白"],
+        ["dizzy", "adj. 头晕目眩的"],
+        ["chairwoman", "n. 女主席；女会长"],
+        ["sunrise", "n. 日出；黎明"],
+        ["potential", "n. 潜力，可能性 adj. 潜在的"],
+        ["bug", "n. 突然的兴趣，迷恋；小虫"],
+        ["enterprising", "adj. 有创业精神的，进取心强的"],
+        ["input", "n. 投入（物）；输入"],
+        ["obstacle", "n. 障碍，阻碍"],
+        ["phase", "n. 阶段，时期"],
+        ["cosmetics", "n. 化妆品，美容品"],
+        ["purchase", "v. 购买 n. 采购"],
+        ["distribution", "n. 分销；分配，分布"],
+        ["bonus", "n. 奖金；红利；额外好处"],
+        ["guidance", "n. 指导，引导"],
+        ["discriminate", "v. 歧视；区分"],
+        ["estate", "n. 庄园；地产"],
+        ["superior", "adj. 优质的；上级的 n. 上级"],
+        ["calorie", "n. 卡（热量单位）"],
+        ["subjective", "adj. 主观的"],
+        ["interfere", "v. 介入；干涉"],
+        ["rational", "adj. 理性的，理智的"],
+        ["exceed", "v. 超过，超出"],
+        ["financial", "adj. 财政的，金融的"],
+        ["frustration", "n. 挫败；令人沮丧的事"],
+        ["supervision", "n. 监督，管理"],
+        ["expense", "n. 费用，花费"],
+        ["abuse", "v. 滥用；n. 滥用"],
+        ["prosperous", "adj. 繁荣的；兴旺的"],
+        ["interfere in", "干涉（内政）"],
+        ["interfere with", "妨碍，干扰"]
+      ]},
+      {"n": "Unit 5 Into the unknown 走进未知", "w": [
+        ["civilisation", "n. 文明"],
+        ["intrigue", "v. 激起…… 兴趣；密谋"],
+        ["bury", "v. 埋葬；埋藏"],
+        ["pyramid", "n. 金字塔"],
+        ["astronomy", "n. 天文学"],
+        ["canal", "n. 运河；水道"],
+        ["tropical", "adj. 热带的"],
+        ["cyclone", "n. 气旋，飓风"],
+        ["megadrought", "n. 特大干旱"],
+        ["downfall", "n. 衰落；垮台"],
+        ["preserve", "v. 保护；保存 n. 保护区"],
+        ["archaeologist", "n. 考古学家"],
+        ["decay", "v. &n. 腐烂；衰败"],
+        ["mysterious", "adj. 神秘的"],
+        ["clay", "n. 黏土，泥土"],
+        ["sacrifice", "n. &v. 牺牲；献祭"],
+        ["tomb", "n. 坟墓，墓穴"],
+        ["hieroglyph", "n. 象形文字"],
+        ["orbit", "n. 轨道 v. 沿轨道运行"],
+        ["astronomer", "n. 天文学家"],
+        ["equivalent", "adj. 等同的，等值的 n. 等量物"],
+        ["be equivalent to", "等同于，相当于"]
+      ]},
+      {"n": "Unit 6 Nature in words 文字中的自然", "w": [
+        ["thrive", "v. 茁壮成长；繁荣兴旺"],
+        ["breeze", "n. 微风，和风"],
+        ["tremble", "v. 颤抖，哆嗦"],
+        ["hollow", "adj. 中空的；空洞的"],
+        ["rustle", "v. （树叶）沙沙作响 n. 沙沙声"],
+        ["dew", "n. 露水，露珠"],
+        ["butterfly", "n. 蝴蝶"],
+        ["daffodil", "n. 黄水仙"],
+        ["brook", "n. 小溪，小河"],
+        ["dusk", "n. 黄昏，傍晚"],
+        ["frost", "n. 霜；霜冻 v. 结霜"],
+        ["grief", "n. 悲伤，悲痛"],
+        ["blossom", "n. 花 v. 开花；兴旺"],
+        ["solitude", "n. 独处，孤独"],
+        ["magnificent", "adj. 宏伟的，壮丽的"],
+        ["exquisite", "adj. 精美的；敏锐的"],
+        ["stream", "n. 小溪，溪流"],
+        ["oak", "n. 橡树，栎树"],
+        ["lawn", "n. 草坪，草地"],
+        ["mist", "n. 薄雾，霭 v. 起雾"]
+      ]},
+    ]
+  }
+};
+
 /* ---------- 数据层 ---------- */
 /* 21 天抗遗忘复习节点：第 1 / 3 / 7 / 14 / 21 天各复习一次，共 5 轮 */
 var REVIEW_DAYS = [1,3,7,14,21];
@@ -365,7 +601,10 @@ function defaultData(){
     students:[],                   /* {id,name,note,createdAt} */
     wordBank:[],                   /* {id,en,cn,addedAt} 词库 */
     lessons:[],                    /* {id,studentId,date,time,note,status,words:[{en,cn}],startedAt,endedAt,review:[{offset,dueDate,done,doneAt}]} */
-    logs:[]                        /* {time,type,text} */
+    logs:[],                       /* {time,type,text} */
+    studyStatus:{},                /* 背单词掌握度：{ 单词小写: {stage,right,wrong,learned,cn,lastAt} } */
+    studyRound:null,               /* 本轮学习清单：{id,list:[{en,cn,unit}],source,at} */
+    studySessions:[]               /* 学习/复习记录：{id,date,at,type,total,known,unknown,words[]} */
   };
 }
 var data = defaultData();
@@ -376,6 +615,9 @@ function migrateData(){
   if(!Array.isArray(data.lessons)){ data.lessons=[]; changed=true; }
   if(!Array.isArray(data.students)){ data.students=[]; changed=true; }
   if(!data.account){ data.account={pass:''}; changed=true; }
+  if(!data.studyStatus || typeof data.studyStatus!=='object' || Array.isArray(data.studyStatus)){ data.studyStatus={}; changed=true; }
+  if(!Array.isArray(data.studySessions)){ data.studySessions=[]; changed=true; }
+  if(data.studyRound===undefined){ data.studyRound=null; changed=true; }
   data.lessons.forEach(function(l){
     if(!Array.isArray(l.words)){ l.words=[]; changed=true; }
     if(!l.status){ l.status = l.endedAt ? 'done' : 'booked'; changed=true; }
@@ -620,6 +862,7 @@ function renderApp(v){
     + '<button id="nv-today" onclick="renderApp(\'today\')">🏠 今日</button>'
     + '<button id="nv-lessons" onclick="renderApp(\'lessons\')">📅 课程</button>'
     + '<button id="nv-review" onclick="renderApp(\'review\')">⏰ 抗遗忘</button>'
+    + '<button id="nv-study" onclick="renderApp(\'study\')">🧠 背单词</button>'
     + '<button id="nv-bank" onclick="renderApp(\'bank\')">📚 词库</button>'
     + '<button id="nv-students" onclick="renderApp(\'students\')">👤 学生</button>'
     + '<button id="nv-settings" onclick="renderApp(\'settings\')">⚙️ 设置</button>'
@@ -629,12 +872,13 @@ function renderApp(v){
   renderView();
 }
 function renderView(){
-  var navs = {today:1,lessons:1,review:1,bank:1,students:1,settings:1};
+  var navs = {today:1,lessons:1,review:1,study:1,bank:1,students:1,settings:1};
   for(var k in navs){ var b=document.getElementById('nv-'+k); if(b) b.className = (view===k?'on':''); }
   var el=document.getElementById('view');
   if(view==='today') el.innerHTML = viewToday();
   else if(view==='lessons') el.innerHTML = viewLessons();
   else if(view==='review') el.innerHTML = viewReview();
+  else if(view==='study') el.innerHTML = viewStudy();
   else if(view==='bank') el.innerHTML = viewBank();
   else if(view==='students') el.innerHTML = viewStudents();
   else if(view==='settings') el.innerHTML = viewSettings();
@@ -723,7 +967,8 @@ function reviewItemHTML(it, showStudent){
     + '<div style="margin-top:7px">'
     + l.words.map(function(w){ return '<span class="chip">'+esc(w.en)+' <span class="cn">'+esc(w.cn)+'</span></span>'; }).join('')
     + '</div>'
-    + '<div class="acts" style="margin-top:9px"><button class="btn sm" onclick="markRound(\''+l.id+'\','+it.idx+')">✔ 已完成这轮复习</button></div>'
+    + '<div class="acts" style="margin-top:9px"><button class="btn sm" onclick="markRound(\''+l.id+'\','+it.idx+')">✔ 已完成这轮复习</button>'
+    + '<button class="btn sm sub" onclick="studyStartReviewWords(\''+l.id+'\')">🧠 进入背单词复习</button></div>'
     + '</div>';
   return h;
 }
@@ -1178,6 +1423,421 @@ function changePass(){
     });
     alert('✅ 密码已修改，正在用新密码重新加密上传云端');
   }).catch(function(){ alert('当前密码不正确'); });
+}
+
+/* =========================================================
+   背单词模块：① 选词 → ② 新词学习 → ③ 抗遗忘复习
+   核心规则：默认只显示英文，双击单词才显示中文释义
+   ========================================================= */
+var _study = { stage:'home', src:'', pickSet:{}, pickN:10, words:[], idx:0, peek:-1, results:{}, result:null };
+
+function studyKey(en){ return String(en==null?'':en).toLowerCase(); }
+
+/* ---- 词库来源与取词 ---- */
+function studySources(){
+  var out=[];
+  if(data.wordBank && data.wordBank.length) out.push({id:'bank', name:'我的词库（'+data.wordBank.length+' 词）'});
+  for(var k in PRESET_LIBS){
+    if(Object.prototype.hasOwnProperty.call(PRESET_LIBS,k)) out.push({id:'preset:'+k, name:PRESET_LIBS[k].name||k});
+  }
+  return out;
+}
+function studyDefaultSrc(){
+  var srcs=studySources();
+  for(var i=0;i<srcs.length;i++){ if(srcs[i].id.indexOf('preset:')===0) return srcs[i].id; }
+  return srcs.length ? srcs[0].id : '';
+}
+function studySourceName(id){
+  if(id==='bank') return '我的词库';
+  if(id && id.indexOf('preset:')===0){ var lib=PRESET_LIBS[id.slice(7)]; return lib ? (lib.name||id) : id; }
+  return id||'';
+}
+/* 按顺序加载某个来源的全部单词 */
+function studyLibWords(src){
+  var out=[];
+  if(src==='bank'){
+    (data.wordBank||[]).forEach(function(w){ if(w && w.en) out.push({en:w.en, cn:w.cn||'', unit:''}); });
+    return out;
+  }
+  if(src && src.indexOf('preset:')===0){
+    var lib=PRESET_LIBS[src.slice(7)]; if(!lib) return [];
+    (lib.units||[]).forEach(function(u){
+      (u.w||[]).forEach(function(w){ out.push({en:w[0], cn:w[1]||'', unit:u.n||''}); });
+    });
+  }
+  return out;
+}
+function studyRoundWords(){ return (data.studyRound && data.studyRound.list) || []; }
+function studyWordsByScope(scope){
+  if(scope==='round') return studyRoundWords().map(function(w){ return {en:w.en, cn:w.cn||''}; });
+  if(scope==='learned'){
+    var out=[];
+    for(var k in data.studyStatus){
+      if(!Object.prototype.hasOwnProperty.call(data.studyStatus,k)) continue;
+      var s=data.studyStatus[k];
+      if(s && s.learned) out.push({en:s.en||k, cn:s.cn||''});
+    }
+    return out;
+  }
+  if(scope && scope.indexOf('lesson:')===0){
+    var l=getLesson(scope.slice(7));
+    return (l && l.words ? l.words : []).map(function(w){ return {en:w.en, cn:w.cn||''}; });
+  }
+  if(scope && (scope==='bank' || scope.indexOf('preset:')===0)) return studyLibWords(scope);
+  return [];
+}
+function studyScopeOptions(){
+  var out=[];
+  var rw=studyRoundWords();
+  if(rw.length) out.push({id:'round', name:'本轮清单（'+rw.length+' 词）'});
+  var n=0; for(var k in data.studyStatus){ var s=data.studyStatus[k]; if(s && s.learned) n++; }
+  if(n) out.push({id:'learned', name:'所有学过的单词（'+n+' 词）'});
+  data.lessons.filter(function(l){ return l.status==='done' && l.words && l.words.length; })
+    .sort(function(a,b){ return (b.date+(b.time||'')).localeCompare(a.date+(a.time||'')); }).slice(0,8)
+    .forEach(function(l){ out.push({id:'lesson:'+l.id, name:'📅 '+fmtShort(l.date)+' '+studentName(l)+' 课的单词（'+l.words.length+' 词）'}); });
+  studySources().forEach(function(s){ out.push({id:s.id, name:'📚 词库 · '+s.name}); });
+  return out;
+}
+
+/* ---- 掌握度 ---- */
+function studyStatusOf(en){ return data.studyStatus[studyKey(en)] || null; }
+function studyStage(en){ var s=studyStatusOf(en); return s ? (s.stage||0) : 0; }
+function studyTouch(en, cn, learned){
+  var k=studyKey(en);
+  if(!data.studyStatus[k]) data.studyStatus[k]={stage:0, right:0, wrong:0, learned:false, en:en, cn:'', lastAt:''};
+  var s=data.studyStatus[k];
+  if(en) s.en=en;
+  if(cn && !s.cn) s.cn=cn;
+  if(learned) s.learned=true;
+  s.lastAt=nowStr();
+  return s;
+}
+/* 复习判定：认识 → 进度 +1（上限 5）；不认识 → 进度 -1（下限 0） */
+function studyMark(en, cn, knew){
+  var s=studyTouch(en, cn, true);
+  if(knew){ s.right=(s.right||0)+1; s.stage=Math.min(5,(s.stage||0)+1); }
+  else { s.wrong=(s.wrong||0)+1; s.stage=Math.max(0,(s.stage||0)-1); }
+  return s;
+}
+function studyStats(){
+  var st=data.studyStatus||{}, learned=0, mastered=0, weak=0;
+  for(var k in st){
+    if(!Object.prototype.hasOwnProperty.call(st,k)) continue;
+    var s=st[k]; if(!s) continue;
+    if(s.learned) learned++;
+    if((s.stage||0)>=3) mastered++;
+    if(s.learned && (s.stage||0)<2) weak++;
+  }
+  return {learned:learned, mastered:mastered, weak:weak};
+}
+
+/* ---- 本轮清单 / 记录 ---- */
+function studySetRound(list, sourceName){
+  data.studyRound = { id:uid(), source:sourceName||'', at:nowStr(),
+    list:(list||[]).map(function(w){ return {en:w.en, cn:w.cn||'', unit:w.unit||''}; }) };
+  return data.studyRound;
+}
+function studyAddSession(type, list, results){
+  var known=0, unknown=0;
+  (list||[]).forEach(function(w){
+    var r=results ? results[studyKey(w.en)] : '';
+    if(r==='know') known++; else if(r==='unknown') unknown++;
+  });
+  data.studySessions = data.studySessions || [];
+  data.studySessions.unshift({id:uid(), date:todayStr(), at:nowStr(), type:type,
+    total:(list||[]).length, known:known, unknown:unknown,
+    words:(list||[]).map(function(w){ return w.en; })});
+  if(data.studySessions.length>500) data.studySessions.length=500;
+}
+
+/* ---- 视图 ---- */
+function viewStudy(){
+  var st=studyStats();
+  var h='<div class="card"><h3>🧠 背单词</h3>'
+    + '<div class="small">规则：<b>默认只显示英文</b>，双击单词才显示中文释义</div>'
+    + '<div class="sbar"><span class="sb">已学 '+st.learned+' 词</span><span class="sb g">已掌握 '+st.mastered+'</span><span class="sb r">需加强 '+st.weak+'</span></div></div>';
+  if(_study.stage==='pick') h+=studyPickHTML();
+  else if(_study.stage==='learn') h+=studyLearnHTML();
+  else if(_study.stage==='review') h+=studyReviewHTML();
+  else if(_study.stage==='result') h+=studyResultHTML();
+  else h+=studyHomeHTML();
+  return h;
+}
+function studyHomeHTML(){
+  var rw=studyRoundWords();
+  var h='<div class="mode-card" onclick="studyOpenPick()"><span class="ic">①</span><div><div class="tt">选词</div><div class="dd">按顺序浏览词库，挑出不认识的词，一次可选 N 个</div></div><span class="go">去选词 →</span></div>';
+  h+='<div class="mode-card" onclick="studyStartLearn()"><span class="ic">②</span><div><div class="tt">新词学习</div><div class="dd">只显示英文，双击看中文释义</div></div><span class="go">开始 →</span></div>';
+  h+='<div class="card"><h3>③ 抗遗忘复习</h3><div class="small">只显示英文，认识的打 ✅、不认识的打 ❌，双击看释义</div>';
+  var opts=studyScopeOptions();
+  if(!opts.length){
+    h+='<div class="empty">还没有可复习的单词（先选词学习，或到「📚 词库」导入单词）</div>';
+  }else{
+    h+='<label class="f">复习范围</label><select id="sr-scope">'+opts.map(function(o){ return '<option value="'+o.id+'">'+esc(o.name)+'</option>'; }).join('')+'</select>'
+      + '<div style="margin-top:12px"><button class="btn big danger" onclick="studyStartReview()">开始复习</button></div>';
+  }
+  h+='</div>';
+  h+='<div class="card"><h3>本轮学习清单 <span class="small">'+(rw.length?(rw.length+' 词'):'空')+'</span></h3>';
+  if(rw.length){
+    h+='<div class="small">来源：'+esc(data.studyRound.source||'—')+' · 生成于 '+esc(String(data.studyRound.at||'').slice(5,16))+'</div>'
+      + '<div style="margin-top:8px">'+rw.slice(0,40).map(function(w){ return '<span class="chip">'+esc(w.en)+'</span>'; }).join('')
+      + (rw.length>40?' <span class="small">…共'+rw.length+'词</span>':'')+'</div>'
+      + '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn sub" onclick="studyStartLearn()">开始学习</button>'
+      + '<button class="btn ghost" onclick="studyClearRound()">清空清单</button></div>';
+  }else{
+    h+='<div class="empty">还没有本轮清单，先点上面「① 选词」</div>';
+  }
+  h+='</div>';
+  if((data.studySessions||[]).length){
+    h+='<div class="card"><h3>最近记录</h3>'
+      + data.studySessions.slice(0,6).map(function(s){
+          var t=(s.type==='review') ? '抗遗忘复习' : '新词学习';
+          var extra=(s.type==='review') ? ('（✅ '+s.known+' / ❌ '+s.unknown+'）') : '';
+          return '<div class="small" style="padding:6px 0;border-bottom:1px solid #f1f3f8">'+esc(s.at||s.date)+' · '+t+' '+s.total+' 词'+extra+'</div>';
+        }).join('')
+      + '</div>';
+  }
+  return h;
+}
+/* ① 选词 */
+function studyOpenPick(){ if(!_study.src) _study.src=studyDefaultSrc(); _study.stage='pick'; renderView(); }
+function studyPickHTML(){
+  var srcs=studySources();
+  var src=_study.src || studyDefaultSrc();
+  var lib=studyLibWords(src);
+  var picked=_study.pickSet||{};
+  var n=0; for(var k in picked){ if(Object.prototype.hasOwnProperty.call(picked,k)) n++; }
+  var h='<div class="card"><h3>① 选词 <button class="btn sm ghost" onclick="studyExit()">返回</button></h3>';
+  h+='<label class="f">词库来源（按顺序加载全部单词）</label>'
+    + '<select onchange="_study.src=this.value;_study.pickSet={};renderView()">'
+    + (srcs.length ? srcs.map(function(s){ return '<option value="'+s.id+'"'+(src===s.id?' selected':'')+'>'+esc(s.name)+'</option>'; }).join('')
+                   : '<option value="">（词库为空）</option>')
+    + '</select>';
+  h+='<div style="display:flex;gap:8px;align-items:flex-end;margin-top:10px;flex-wrap:wrap">'
+    + '<div style="flex:1;min-width:110px"><label class="f" style="margin-top:0">一次选几个（默认10）</label><input type="number" id="pk-n" min="1" max="300" value="'+(_study.pickN||10)+'"></div>'
+    + '<button class="btn" onclick="studyAutoPick()">选 N 个未掌握</button>'
+    + '<button class="btn ghost" onclick="_study.pickSet={};renderView()">清空</button></div>';
+  h+='<div class="warn-tip">点一下单词＝选中（不认识），再点一下取消。<b>双击单词</b>或点右侧 👁 可看中文释义。</div></div>';
+  h+='<div class="card"><h3>全部单词 <span class="small">共 '+lib.length+' 词</span></h3>';
+  if(!lib.length){
+    h+='<div class="empty">这个来源没有单词</div>';
+  }else{
+    var lastUnit='';
+    lib.forEach(function(w,i){
+      if(w.unit && w.unit!==lastUnit){ lastUnit=w.unit; h+='<div class="sec-tip">'+esc(w.unit)+'</div>'; }
+      var kk=studyKey(w.en);
+      h+='<div class="sw'+(picked[kk]!=null?' sel':'')+'" id="sw'+i+'" onclick="studyTogglePick('+i+')" ondblclick="studyPeekSw('+i+')">'
+        + '<span class="sw-en">'+esc(w.en)+'</span>'
+        + '<span class="sw-cn">'+esc(w.cn||'')+'</span>'
+        + '<span class="sw-eye" onclick="event.stopPropagation();studyPeekSw('+i+')">👁</span></div>';
+    });
+  }
+  h+='</div>';
+  h+='<div class="card" style="position:sticky;bottom:6px;box-shadow:0 -2px 12px rgba(28,35,51,.10)"><div style="display:flex;gap:10px;align-items:center">'
+    + '<div style="flex:1" class="small">已选 <b class="hl" id="pk-cnt">'+n+'</b> 个单词</div>'
+    + '<button class="btn" onclick="studyMakeRound()">生成本轮清单</button></div></div>';
+  return h;
+}
+function studyTogglePick(i){
+  var lib=studyLibWords(_study.src||studyDefaultSrc());
+  var w=lib[i]; if(!w) return;
+  var k=studyKey(w.en);
+  if(_study.pickSet[k]!=null) delete _study.pickSet[k]; else _study.pickSet[k]=i;
+  var el=document.getElementById('sw'+i);
+  if(el){
+    var peek=el.className.indexOf('peek')>=0;
+    var has=(_study.pickSet[k]!=null);
+    el.className='sw'+(has?' sel':'')+(peek?' peek':'');
+  }
+  studyPickCount();
+}
+function studyPeekSw(i){
+  var el=document.getElementById('sw'+i); if(!el) return;
+  el.className = (el.className.indexOf('peek')>=0) ? el.className.replace(/\s*peek/,'') : (el.className+' peek');
+}
+function studyPickCount(){
+  var c=document.getElementById('pk-cnt'); if(!c) return;
+  var n=0; for(var k in _study.pickSet){ if(Object.prototype.hasOwnProperty.call(_study.pickSet,k)) n++; }
+  c.textContent=n;
+}
+function studyAutoPick(){
+  var el=document.getElementById('pk-n');
+  var n=parseInt(el && el.value, 10); if(!(n>0)) n=10; _study.pickN=n;
+  var lib=studyLibWords(_study.src||studyDefaultSrc());
+  _study.pickSet={}; var got=0, i;
+  for(i=0;i<lib.length && got<n;i++){ if(studyStage(lib[i].en)>=5) continue; _study.pickSet[studyKey(lib[i].en)]=i; got++; }
+  for(i=0;i<lib.length && got<n;i++){ var kk=studyKey(lib[i].en); if(_study.pickSet[kk]==null){ _study.pickSet[kk]=i; got++; } }
+  lib.forEach(function(w,i2){
+    var e=document.getElementById('sw'+i2); if(!e) return;
+    var peek=e.className.indexOf('peek')>=0;
+    e.className='sw'+( _study.pickSet[studyKey(w.en)]!=null ? ' sel':'' )+(peek?' peek':'');
+  });
+  studyPickCount();
+}
+function studyMakeRound(){
+  var lib=studyLibWords(_study.src||studyDefaultSrc());
+  var keys=[]; for(var k in _study.pickSet){ if(Object.prototype.hasOwnProperty.call(_study.pickSet,k)) keys.push(k); }
+  if(!keys.length){ alert('还没有选单词。\n点单词即可选中（不认识的），或点「选 N 个未掌握」。'); return; }
+  keys.sort(function(a,b){ return _study.pickSet[a]-_study.pickSet[b]; });
+  var list=keys.map(function(k){ var w=lib[_study.pickSet[k]]; return {en:w.en, cn:w.cn||'', unit:w.unit||''}; });
+  var sname=studySourceName(_study.src||studyDefaultSrc());
+  studySetRound(list, sname);
+  addLog('背单词', '生成本轮清单 '+list.length+' 词（'+sname+'）');
+  saveData();
+  _study.pickSet={};
+  _study.stage='home';
+  renderView();
+  alert('✅ 已生成本轮清单：'+list.length+' 个单词');
+}
+/* ② 新词学习 */
+function studyStartLearn(){
+  var list=studyRoundWords();
+  if(!list.length){ alert('还没有本轮清单，请先「① 选词」生成本轮清单。'); studyOpenPick(); return; }
+  _study.words=list.map(function(w){ return {en:w.en, cn:w.cn||''}; });
+  _study.idx=0; _study.peek=-1; _study.stage='learn';
+  renderView();
+}
+function studyLearnHTML(){
+  var list=_study.words||[];
+  if(!list.length) return studyBackCard('没有可学习的单词');
+  var i=Math.max(0, Math.min(_study.idx||0, list.length-1)); _study.idx=i;
+  var w=list[i], peeked=(_study.peek===i);
+  return '<div class="card"><h3>② 新词学习 <span class="small">'+(i+1)+' / '+list.length+'</span>'
+    + '<button class="btn sm ghost" onclick="studyFinishLearn()">结束</button></h3>'
+    + '<div class="lc'+(peeked?' peek':'')+'" ondblclick="studyTogglePeek()">'
+    + '<div class="lc-en">'+esc(w.en)+'</div>'
+    + '<div class="lc-cn">'+esc(w.cn||'（无释义）')+'</div>'
+    + '<div class="small" style="margin-top:16px">'+(peeked?'双击收起释义':'双击单词显示中文释义')+'</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:14px">'
+    + '<button class="btn ghost" style="flex:1" onclick="studyNav(-1)"'+(i<=0?' disabled':'')+'>← 上一个</button>'
+    + '<button class="btn sub" style="flex:1" onclick="studyTogglePeek()">看释义</button>'
+    + '<button class="btn" style="flex:1" onclick="studyNav(1)"'+(i>=list.length-1?' disabled':'')+'>下一个 →</button>'
+    + '</div></div>';
+}
+function studyTogglePeek(){ _study.peek = (_study.peek===_study.idx) ? -1 : _study.idx; renderView(); }
+function studyNav(d){ _study.idx=(_study.idx||0)+d; _study.peek=-1; renderView(); }
+function studyFinishLearn(){
+  var list=_study.words||[];
+  list.forEach(function(w){ studyTouch(w.en, w.cn, true); });
+  if(list.length){
+    studyAddSession('learn', list, null);
+    addLog('背单词', '新词学习 '+list.length+' 词');
+    saveData();
+  }
+  _study.stage='home'; _study.peek=-1;
+  renderView();
+}
+/* ③ 抗遗忘复习 */
+function studyStartReview(){
+  var sel=document.getElementById('sr-scope');
+  var scope=sel ? sel.value : 'round';
+  var list=studyWordsByScope(scope);
+  if(!list.length){ alert('这个范围没有单词'); return; }
+  if(list.length>200) list=list.slice(0,200);
+  _study.words=list; _study.results={}; _study.peek=-1; _study.stage='review';
+  renderView();
+  window.scrollTo(0,0);
+}
+function studyStartReviewWords(lessonId){
+  var l=getLesson(lessonId);
+  if(!l || !l.words || !l.words.length){ alert('这节课没有单词'); return; }
+  _study.words=l.words.map(function(w){ return {en:w.en, cn:w.cn||''}; });
+  _study.results={}; _study.peek=-1; _study.stage='review';
+  renderApp('study');
+}
+function studyReviewHTML(){
+  var list=_study.words||[];
+  if(!list.length) return studyBackCard('没有可复习的单词');
+  var res=_study.results||{}, known=0, unknown=0;
+  list.forEach(function(w){ var r=res[studyKey(w.en)]; if(r==='know') known++; else if(r==='unknown') unknown++; });
+  var h='<div class="card"><h3>③ 抗遗忘复习 <span class="small">'+(known+unknown)+' / '+list.length+'</span>'
+    + '<button class="btn sm ghost" onclick="studyExit()">退出</button></h3>'
+    + '<div class="small">认识 → 点 ✅；不认识 → 点 ❌。<b>双击单词</b>看中文释义。</div>'
+    + '<div class="sbar"><span class="sb g">✅ 认识 <b id="sr-know">'+known+'</b></span><span class="sb r">❌ 不认识 <b id="sr-no">'+unknown+'</b></span></div></div>';
+  h+='<div class="card">';
+  h+=list.map(function(w,i){
+    var r=res[studyKey(w.en)]||'';
+    return '<div class="rw'+(r==='know'?' ok':(r==='unknown'?' no':''))+'" id="rw'+i+'" ondblclick="studyPeekRow('+i+')">'
+      + '<span class="rw-n">'+(i+1)+'</span>'
+      + '<span class="rw-en">'+esc(w.en)+'</span>'
+      + '<span class="rw-cn">'+esc(w.cn||'')+'</span>'
+      + '<button class="rw-b rw-ok'+(r==='know'?' on':'')+'" onclick="event.stopPropagation();studyAnswer('+i+',\'know\')">✓</button>'
+      + '<button class="rw-b rw-no'+(r==='unknown'?' on':'')+'" onclick="event.stopPropagation();studyAnswer('+i+',\'unknown\')">✕</button>'
+      + '</div>';
+  }).join('');
+  h+='<div style="margin-top:12px"><button class="btn big" id="sr-sub" onclick="studySubmitReview()">提交本轮复习</button></div></div>';
+  return h;
+}
+function studyPeekRow(i){
+  var el=document.getElementById('rw'+i); if(!el) return;
+  el.className = (el.className.indexOf('peek')>=0) ? el.className.replace(/\s*peek/,'') : (el.className+' peek');
+}
+function studyAnswer(i, r){
+  var w=(_study.words||[])[i]; if(!w) return;
+  _study.results[studyKey(w.en)]=r;
+  var el=document.getElementById('rw'+i);
+  if(el){
+    el.className='rw'+(r==='know'?' ok':' no')+(el.className.indexOf('peek')>=0?' peek':'');
+    var okb=el.querySelector('.rw-ok'), nob=el.querySelector('.rw-no');
+    if(okb) okb.className='rw-b rw-ok'+(r==='know'?' on':'');
+    if(nob) nob.className='rw-b rw-no'+(r==='unknown'?' on':'');
+  }
+  var known=0, unknown=0;
+  for(var kk in _study.results){ if(!Object.prototype.hasOwnProperty.call(_study.results,kk)) continue; if(_study.results[kk]==='know') known++; else unknown++; }
+  var e1=document.getElementById('sr-know'), e2=document.getElementById('sr-no');
+  if(e1) e1.textContent=known;
+  if(e2) e2.textContent=unknown;
+  var sub=document.getElementById('sr-sub');
+  if(sub) sub.textContent='提交本轮复习（'+(known+unknown)+'/'+(_study.words||[]).length+'）';
+}
+function studySubmitReview(){
+  var list=_study.words||[], res=_study.results||{};
+  var miss=list.filter(function(w){ return !res[studyKey(w.en)]; });
+  if(miss.length && !confirm('还有 '+miss.length+' 个单词没有判断。\n未判断的将按「不认识」处理，确定提交吗？')) return;
+  var known=0, unknown=0, wrong=[];
+  list.forEach(function(w){
+    var r=res[studyKey(w.en)]||'unknown';
+    studyMark(w.en, w.cn, r==='know');
+    if(r==='know'){ known++; } else { unknown++; wrong.push({en:w.en, cn:w.cn||''}); }
+  });
+  studyAddSession('review', list, res);
+  addLog('背单词', '抗遗忘复习 '+list.length+' 词（认识 '+known+' / 不认识 '+unknown+'）');
+  saveData();
+  _study.result={type:'review', total:list.length, known:known, unknown:unknown, wrong:wrong};
+  _study.stage='result';
+  renderView();
+  window.scrollTo(0,0);
+}
+function studyResultHTML(){
+  var r=_study.result; if(!r) return studyBackCard('');
+  var h='<div class="card"><h3>本轮复习完成 🎉</h3>'
+    + '<div class="sbar"><span class="sb g">✅ 认识 '+r.known+'</span><span class="sb r">❌ 不认识 '+r.unknown+'</span><span class="sb">共 '+r.total+'</span></div>';
+  if(r.wrong && r.wrong.length){
+    h+='<div class="sec-tip">❌ 需要加强的单词（'+r.wrong.length+'）</div>'
+      + r.wrong.map(function(w){ return '<div class="rw no"><span class="rw-en">'+esc(w.en)+'</span><span class="rw-cn" style="display:block">'+esc(w.cn||'')+'</span></div>'; }).join('');
+  }else{
+    h+='<div class="small" style="margin-top:10px">全部认识，很棒 👍</div>';
+  }
+  h+='<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
+    + ((r.wrong && r.wrong.length) ? '<button class="btn" onclick="studyRetryWrong()">再复习不认识的（'+r.wrong.length+'）</button>' : '')
+    + '<button class="btn ghost" onclick="studyExit()">返回首页</button></div></div>';
+  return h;
+}
+function studyRetryWrong(){
+  var r=_study.result;
+  if(!r || !r.wrong || !r.wrong.length) return;
+  _study.words=r.wrong.slice(); _study.results={}; _study.peek=-1; _study.result=null; _study.stage='review';
+  renderView();
+}
+function studyExit(){ _study.stage='home'; _study.peek=-1; _study.result=null; renderView(); window.scrollTo(0,0); }
+function studyClearRound(){
+  if(!confirm('确定清空本轮学习清单吗？\n（已学、已掌握单词的进度不受影响）')) return;
+  data.studyRound=null;
+  saveData();
+  renderView();
+}
+function studyBackCard(msg){
+  return '<div class="card"><div class="empty">'+esc(msg||'')+'</div><button class="btn big" onclick="studyExit()">返回背单词首页</button></div>';
 }
 
 /* ---------- 弹窗 ---------- */
