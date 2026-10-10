@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>单词课排课系统</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#eef1f6;color:#1c2333;font-size:14px;}
+a{color:#2f6bff;}
+#app{max-width:920px;margin:0 auto;padding-bottom:30px;}
+.header{background:linear-gradient(135deg,#2f6bff,#5a8bff);color:#fff;padding:16px 16px 12px;border-radius:0 0 18px 18px;box-shadow:0 4px 14px rgba(47,107,255,.25);}
+.header h1{font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px;}
+.header .sub{font-size:12px;opacity:.85;margin-top:4px;}
+.header .hstat{font-size:12px;opacity:.92;margin-top:6px;}
+.nav{display:flex;gap:4px;background:#fff;margin:12px 12px 0;padding:5px;border-radius:14px;box-shadow:0 2px 8px rgba(28,35,51,.06);overflow-x:auto;position:sticky;top:6px;z-index:50;}
+.nav button{flex:1;border:0;background:none;padding:9px 4px;border-radius:10px;font-size:13px;color:#5b6475;cursor:pointer;white-space:nowrap;font-family:inherit;}
+.nav button.on{background:#2f6bff;color:#fff;font-weight:600;}
+.wrap{padding:12px;}
+.card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(28,35,51,.05);}
+.card h3{font-size:15px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+.sec-tip{font-size:12px;color:#8a93a5;margin:14px 0 6px;display:flex;justify-content:space-between;align-items:center;}
+.stat-row{display:flex;gap:10px;}
+.stat-cell{flex:1;background:#fff;border-radius:14px;padding:12px 8px;text-align:center;box-shadow:0 2px 8px rgba(28,35,51,.05);}
+.stat-cell .n{font-size:26px;font-weight:800;color:#2f6bff;line-height:1.15;}
+.stat-cell .t{font-size:12px;color:#8a93a5;margin-top:2px;}
+.stat-cell.warn .n{color:#e0562f;}
+.stat-cell.ok .n{color:#18a058;}
+.btn{display:inline-block;border:0;background:#2f6bff;color:#fff;font-size:13px;padding:9px 16px;border-radius:10px;cursor:pointer;font-family:inherit;line-height:1.2;}
+.btn.big{width:100%;padding:12px;font-size:15px;}
+.btn.sub{background:#eef3ff;color:#2f6bff;}
+.btn.danger{background:#fff0ed;color:#d0402a;}
+.btn.ghost{background:#f1f3f8;color:#5b6475;}
+.btn.sm{padding:5px 10px;font-size:12px;border-radius:8px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+input[type=text],input[type=password],input[type=date],input[type=time],select,textarea{width:100%;border:1px solid #dfe4ee;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;background:#fff;color:#1c2333;margin-top:4px;outline:none;}
+input:focus,select:focus,textarea:focus{border-color:#2f6bff;}
+label.f{display:block;font-size:12px;color:#5b6475;margin-top:12px;font-weight:600;}
+.badge{display:inline-block;font-size:11px;padding:2px 9px;border-radius:99px;font-weight:600;}
+.b-booked{background:#e8efff;color:#2f6bff;}
+.b-ongoing{background:#ffece6;color:#d0402a;}
+.b-done{background:#e4f7ec;color:#149355;}
+.b-canceled{background:#f1f3f8;color:#98a1b3;}
+.chip{display:inline-flex;align-items:center;gap:6px;background:#eef3ff;color:#2a4dbb;border-radius:99px;padding:4px 6px 4px 12px;font-size:13px;margin:3px 4px 3px 0;line-height:1.3;}
+.chip .cn{color:#7d8cd0;font-size:12px;}
+.chip .x{background:#c9d8ff;color:#2a4dbb;border-radius:50%;width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;user-select:none;flex:none;}
+.sugg{border:1px solid #dfe4ee;border-radius:10px;margin-top:6px;max-height:210px;overflow:auto;}
+.sugg .it{padding:8px 12px;border-bottom:1px solid #f1f3f8;cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:center;}
+.sugg .it:hover{background:#f5f8ff;}
+.sugg .it .cn{color:#8a93a5;font-size:12px;}
+.lrow{border:1px solid #e8ecf3;border-radius:12px;padding:11px 12px;margin-bottom:10px;background:#fff;}
+.lrow.done{background:#fbfdfc;}
+.lrow.canceled{opacity:.55;}
+.lrow .top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+.lrow .stu{font-size:15px;font-weight:700;}
+.lrow .when{font-size:12px;color:#8a93a5;margin-top:2px;}
+.lrow .acts{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;}
+.lrow .words-line{margin-top:8px;}
+.wnum{font-size:12px;color:#2f6bff;background:#eef3ff;border-radius:99px;padding:2px 10px;}
+table.tbl{width:100%;border-collapse:collapse;font-size:13px;}
+table.tbl th{text-align:left;color:#8a93a5;font-weight:500;font-size:12px;padding:6px 4px;border-bottom:1px solid #e8ecf3;}
+table.tbl td{padding:8px 4px;border-bottom:1px solid #eef1f6;}
+.empty{text-align:center;color:#a8b0c0;font-size:13px;padding:26px 0;}
+.overdue{color:#d0402a;font-weight:700;}
+.review-item{border:1px solid #e8ecf3;border-left:4px solid #2f6bff;border-radius:12px;padding:11px 12px;margin-bottom:10px;background:#fff;}
+.review-item.late{border-left-color:#d0402a;background:#fffaf8;}
+.review-item.finished{border-left-color:#18a058;background:#fbfefc;opacity:.85;}
+.review-item .top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+.round-tag{font-size:11px;background:#f1f3f8;border-radius:99px;padding:2px 9px;color:#5b6475;}
+.round-tag.hot{background:#ffece6;color:#d0402a;font-weight:700;}
+/* 弹窗 */
+#modal{position:fixed;inset:0;background:rgba(20,26,40,.45);display:none;z-index:100;padding:16px;overflow:auto;}
+#modal .box{background:#fff;border-radius:16px;max-width:520px;margin:40px auto;padding:18px;}
+#modal h3{font-size:16px;margin-bottom:6px;}
+.modal-foot{display:flex;gap:10px;margin-top:16px;}
+.modal-foot .btn{flex:1;}
+.lock-wrap{max-width:400px;margin:60px auto 0;padding:0 16px;}
+.lock-card{background:#fff;border-radius:18px;padding:28px 22px;box-shadow:0 6px 24px rgba(28,35,51,.1);}
+.lock-card h2{font-size:20px;margin-bottom:6px;}
+.lock-card .sub{font-size:12px;color:#8a93a5;margin-bottom:10px;}
+.err{background:#ffece6;color:#d0402a;border-radius:10px;padding:8px 12px;font-size:13px;margin-top:10px;display:none;}
+.ok-tip{background:#e4f7ec;color:#149355;border-radius:10px;padding:8px 12px;font-size:13px;margin-top:10px;display:none;}
+.warn-tip{background:#fff7e8;color:#9c5b00;font-size:12px;border-radius:10px;padding:8px 12px;margin:8px 0;line-height:1.6;}
+.link-btn{background:none;border:0;color:#2f6bff;font-size:13px;cursor:pointer;font-family:inherit;padding:0;}
+pre.bk{background:#f5f7fa;border-radius:10px;padding:10px;font-size:11px;overflow:auto;max-height:180px;}
+.hl{color:#d0402a;font-weight:700;}
+.small{font-size:12px;color:#8a93a5;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="window._xlsxFailed=1"></script>
+<script>
+/* =========================================================
+   单词课排课系统（教师端·云同步版）
+   流程：登录 → 预约排课（按学生，一节课一个学生）
+        → 点击【上课】→ 上完课点击【下课】
+        → 系统自动记录 1 节课 + 本节课单词生成 21 天抗遗忘复习
+        → 【加入新单词】上传 Excel 即入词库
+   数据存储：GitHub 数据仓库 + AES-GCM 端到端加密（同教培系统模式）
+   ========================================================= */
+var STORE_KEY = 'wordlesson_manager_v1';
+var CLOUD_CFG = {
+  rawUrls: [
+    'https://chenziyi-dd.github.io/word-lesson-app/data.enc',
+    'https://cdn.jsdelivr.net/gh/chenziyi-dd/word-lesson-app@main/data.enc',
+    'https://raw.githubusercontent.com/chenziyi-dd/word-lesson-app/main/data.enc'
+  ],
+  apiData:  'https://api.github.com/repos/chenziyi-dd/word-lesson-app/contents/data.enc',
+  pbkdf2Iter: 100000
+};
+function getWriteToken(){ return localStorage.getItem('wordlesson_write_token')||''; }
+
+/* ---------- 云端加密层（Web Crypto：PBKDF2 + AES-GCM） ---------- */
+var CRYPTO = {
+  te: new TextEncoder(), td: new TextDecoder(),
+  b64: function(buf){ var b=new Uint8Array(buf), s=''; for(var i=0;i<b.length;i++) s+=String.fromCharCode(b[i]); return btoa(s); },
+  unb64: function(str){ var s=atob(str), b=new Uint8Array(s.length); for(var i=0;i<s.length;i++) b[i]=s.charCodeAt(i); return b; },
+  hex: function(b){ var s=''; for(var i=0;i<b.length;i++) s+=(b[i]<16?'0':'')+b[i].toString(16); return s; },
+  unhex: function(str){ var b=new Uint8Array(str.length/2); for(var i=0;i<b.length;i++) b[i]=parseInt(str.substr(i*2,2),16); return b; },
+  deriveKek: function(pass, saltBytes){
+    return crypto.subtle.importKey('raw', this.te.encode(pass), 'PBKDF2', false, ['deriveKey']).then(function(km){
+      return crypto.subtle.deriveKey({name:'PBKDF2', salt:saltBytes, iterations:CLOUD_CFG.pbkdf2Iter, hash:'SHA-256'}, km,
+        {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+    });
+  },
+  wrapKey: function(pass, masterKeyBytes){
+    var salt=crypto.getRandomValues(new Uint8Array(16));
+    var iv=crypto.getRandomValues(new Uint8Array(12));
+    var self=this;
+    return this.deriveKek(pass, salt).then(function(kek){
+      return crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, kek, masterKeyBytes);
+    }).then(function(wrapBuf){
+      return {salt:self.hex(salt), iv:self.hex(iv), wrap:self.b64(wrapBuf)};
+    });
+  },
+  unwrapKey: function(pass, acct){
+    var self=this;
+    return this.deriveKek(pass, this.unhex(acct.salt)).then(function(kek){
+      return crypto.subtle.decrypt({name:'AES-GCM', iv:self.unhex(acct.iv)}, kek, self.unb64(acct.wrap));
+    });
+  },
+  encryptJson: function(obj, masterKeyBytes){
+    var iv=crypto.getRandomValues(new Uint8Array(12));
+    var self=this;
+    return crypto.subtle.importKey('raw', masterKeyBytes, 'AES-GCM', false, ['encrypt']).then(function(k){
+      return crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, k, self.te.encode(JSON.stringify(obj)));
+    }).then(function(buf){
+      return {iv:self.hex(iv), data:self.b64(buf)};
+    });
+  },
+  decryptJson: function(blob, masterKeyBytes){
+    var self=this;
+    var ivHex = blob.dataIv || blob.iv;
+    return crypto.subtle.importKey('raw', masterKeyBytes, 'AES-GCM', false, ['decrypt']).then(function(k){
+      return crypto.subtle.decrypt({name:'AES-GCM', iv:self.unhex(ivHex)}, k, self.unb64(blob.data));
+    }).then(function(buf){
+      return JSON.parse(self.td.decode(buf));
+    });
+  },
+  randomKey: function(){ return crypto.getRandomValues(new Uint8Array(32)); }
+};
+
+/* ---------- 云同步状态 ---------- */
+var cloud = { blob:null, status:'未同步', pendingPush:false, pushing:false, masterKey:null, wrapCache:{}, lastSync:'', lastPulledVer:'', lastPushError:'' };
+function cloudFetchOne(url){
+  return fetch(url + (url.indexOf('?')<0?'?t=':'&t=') + Date.now(), {cache:'no-store'}).then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.text();
+  }).then(function(txt){
+    txt = txt.trim();
+    if(!txt || txt.indexOf('{')!==0) throw new Error('云端暂无数据');
+    var blob = JSON.parse(txt);
+    if(!blob.accounts) throw new Error('格式不正确');
+    localStorage.setItem('wordlesson_cloud_cache', JSON.stringify(blob));
+    return blob;
+  });
+}
+function cloudFetch(){
+  var urls = CLOUD_CFG.rawUrls.slice();
+  function tryNext(){
+    if(!urls.length) return Promise.reject(new Error('所有云端通道均不可用'));
+    return cloudFetchOne(urls.shift()).catch(function(){ return tryNext(); });
+  }
+  return tryNext();
+}
+function cloudFetchWithCache(){
+  return cloudFetch().catch(function(e){
+    var cached = localStorage.getItem('wordlesson_cloud_cache');
+    if(cached){ cloud.status='离线（使用本机缓存）'; return JSON.parse(cached); }
+    return null;
+  });
+}
+/* 重建账号表（仅教师一个账号） */
+function buildAccounts(){
+  var cached = cloud.wrapCache['teacher'];
+  if(cached && cached.pass===data.account.pass){
+    return Promise.resolve({teacher: cached.acct});
+  }
+  return CRYPTO.wrapKey(data.account.pass, cloud.masterKey).then(function(acct){
+    cloud.wrapCache['teacher']={pass:data.account.pass, acct:acct};
+    return {teacher:acct};
+  });
+}
+/* 加密并缓存 → 防抖上传云端 */
+var pushTimer=null;
+function saveData(cb){
+  data.updatedAt = nowStr();
+  if(!session.ok || !cloud.masterKey){ if(cb) cb(); return; }
+  buildAccounts().then(function(accounts){
+    return CRYPTO.encryptJson(data, cloud.masterKey).then(function(enc){
+      var blob = {v:1, ver:nowStr(), dataIv:enc.iv, data:enc.data, accounts:accounts};
+      cloud.blob = blob;
+      localStorage.setItem('wordlesson_cloud_cache', JSON.stringify(blob));
+      cloud.pendingPush = true;
+      if(pushTimer) clearTimeout(pushTimer);
+      cloud.status='已加密，待上传';
+      pushTimer = setTimeout(function(){ cloudPush(true); }, 2500);
+      if(cb) cb();
+    });
+  }).catch(function(e){ cloud.status='加密失败：'+e.message; if(cb) cb(); });
+}
+function manualSave(){
+  if(!getWriteToken()){
+    alert('⚠️ 本机未配置云端同步令牌，无法上传云端！\n\n请到「设置→云端同步令牌」粘贴令牌后，再回来点保存。\n（此前的数据已加密保存在本机，不会丢）');
+    return;
+  }
+  saveData(function(){
+    if(pushTimer) clearTimeout(pushTimer);
+    setTimeout(function(){ cloudPush(false); }, 300);
+  });
+}
+/* 云端与本机数据自动合并：各集合按 id 取并集，词库再按单词本身去重，日志去重合并 */
+function mergeCloudData(remote){
+  if(!remote || !Array.isArray(remote.students)) return;
+  function byIdMap(arr){ var m={}; (arr||[]).forEach(function(x){ if(x && x.id) m[x.id]=x; }); return m; }
+  ['students','lessons'].forEach(function(key){
+    var mine = byIdMap(data[key]);
+    (remote[key]||[]).forEach(function(x){
+      if(x && x.id && !mine[x.id]){ (data[key]=data[key]||[]).push(x); mine[x.id]=x; }
+    });
+  });
+  /* 词库：先按 id 并集，再按单词文本去重（不同设备分别上传的同一单词只留一条） */
+  var myBank = byIdMap(data.wordBank);
+  var seenEn = {};
+  (data.wordBank||[]).forEach(function(w){ if(w && w.en) seenEn[String(w.en).toLowerCase()]=1; });
+  (remote.wordBank||[]).forEach(function(w){
+    if(!w || !w.id) return;
+    if(myBank[w.id]) return;
+    if(w.en && seenEn[String(w.en).toLowerCase()]) return;
+    (data.wordBank=data.wordBank||[]).push(w); seenEn[String(w.en).toLowerCase()]=1;
+  });
+  var seen={}, logs=[];
+  (remote.logs||[]).forEach(function(l){ var k=(l.time||'')+'|'+(l.type||'')+'|'+(l.text||''); if(!seen[k]){ seen[k]=1; logs.push(l); } });
+  (data.logs||[]).forEach(function(l){ var k=(l.time||'')+'|'+(l.type||'')+'|'+(l.text||''); if(!seen[k]){ seen[k]=1; logs.push(l); } });
+  data.logs = logs;
+  if(remote.updatedAt && (!data.updatedAt || remote.updatedAt>data.updatedAt)) data.updatedAt=remote.updatedAt;
+}
+function cloudPush(silent){
+  if(!cloud.pendingPush && !silent){ renderCloudStatus(); return; }
+  if(cloud.pushing){ return; }
+  var token = getWriteToken();
+  if(!token){
+    cloud.status='⚠️ 未配置同步令牌：数据已加密保存在本机，请到「设置→云端同步令牌」粘贴令牌后点击「立即上传」';
+    if(!silent) alert(cloud.status);
+    renderCloudStatus();
+    return;
+  }
+  cloud.status='正在上传…';
+  var payload = cloud.blob;
+  if(!payload){ cloud.status='无待上传数据'; return; }
+  cloud.pushing = true;
+  function doPut(body){
+    /* 注意：不能用 keepalive:true —— keepalive 请求体上限 64KB，词库大了会被浏览器静默拒绝 */
+    return fetch(CLOUD_CFG.apiData, {
+      method:'PUT',
+      headers:{'Authorization':'token '+token, 'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+  }
+  fetch(CLOUD_CFG.apiData, {headers:{'Authorization':'token '+token}})
+    .then(function(r){ return r.json(); })
+    .then(function(info){
+      var remote = null;
+      try{ remote = info && info.content ? JSON.parse(decodeURIComponent(escape(atob(info.content)))) : null; }catch(e){}
+      var remoteNewer = remote && remote.ver && cloud.lastPulledVer && remote.ver > cloud.lastPulledVer;
+      if(!remoteNewer){
+        var body = { message: '同步 '+payload.ver, content: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))) };
+        if(info && info.sha) body.sha = info.sha;
+        return doPut(body);
+      }
+      return CRYPTO.decryptJson(remote, cloud.masterKey).then(function(remoteData){
+        mergeCloudData(remoteData);
+        cloud.lastPulledVer = remote.ver;
+        return buildAccounts().then(function(accounts){
+          return CRYPTO.encryptJson(data, cloud.masterKey).then(function(enc){
+            payload = {v:1, ver:nowStr(), dataIv:enc.iv, data:enc.data, accounts:accounts};
+            cloud.blob = payload;
+            try{ localStorage.setItem('wordlesson_cloud_cache', JSON.stringify(payload)); }catch(e){}
+            var body = { message:'同步(自动合并) '+payload.ver, content: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))) };
+            if(info && info.sha) body.sha = info.sha;
+            return doPut(body);
+          });
+        });
+      }).catch(function(me){
+        cloud.status='⏸️ 已暂停上传：云端改动无法自动合并，请刷新页面';
+        if(!silent) alert('⚠️ 云端有其他设备的更新，自动合并失败：'+me.message+'\n\n你的数据已加密保存在本机，请刷新页面后再试。');
+        renderCloudStatus();
+        throw {paused:true};
+      });
+    })
+    .then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    })
+    .then(function(res){
+      cloud.pendingPush=false; cloud.status='已同步'; cloud.lastSync=nowStr(); cloud.lastPushError='';
+      cloud.lastPulledVer = payload.ver;
+      renderCloudStatus();
+      if(!silent) alert('✅ 已上传云端：'+ (res.commit? res.commit.sha.slice(0,7):''));
+      cloud.pushing = false;
+    })
+    .catch(function(e){
+      cloud.pushing = false;
+      if(e && e.paused) return;
+      cloud.status='上传失败（已保留在本机，稍后自动重试）';
+      cloud.lastPushError=e.message;
+      if(!silent) alert('上传云端失败：'+e.message+'\n数据已加密保存在本机，下次保存时会自动重试。');
+      renderCloudStatus();
+    });
+}
+window.addEventListener('beforeunload', function(){ if(cloud.pendingPush){ clearTimeout(pushTimer); try{ cloudPush(true); }catch(e){} } });
+function renderCloudStatus(){
+  var el=document.getElementById('cloud-status');
+  if(el) el.innerHTML='<b>'+cloud.status+'</b>'+(cloud.blob?' · 云端版本 '+cloud.blob.ver:'');
+}
+
+/* ---------- 工具函数 ---------- */
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function pad(n){ return n<10 ? '0'+n : ''+n; }
+function todayStr(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function nowStr(){ var d=new Date(); return todayStr()+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function addDays(dateStr, n){
+  var p = String(dateStr||'').split('-');
+  if(p.length!==3) return '';
+  var d = new Date(parseInt(p[0],10), parseInt(p[1],10)-1, parseInt(p[2],10)+n);
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+function fmtShort(dateStr){ return String(dateStr||'').slice(5).replace('-','/'); }
+
+/* ---------- 数据层 ---------- */
+/* 21 天抗遗忘复习节点：第 1 / 3 / 7 / 14 / 21 天各复习一次，共 5 轮 */
+var REVIEW_DAYS = [1,3,7,14,21];
+function defaultData(){
+  return {
+    account:{ pass:'' },          /* 教师登录密码（同时是云端数据加密钥匙） */
+    students:[],                   /* {id,name,note,createdAt} */
+    wordBank:[],                   /* {id,en,cn,addedAt} 词库 */
+    lessons:[],                    /* {id,studentId,date,time,note,status,words:[{en,cn}],startedAt,endedAt,review:[{offset,dueDate,done,doneAt}]} */
+    logs:[]                        /* {time,type,text} */
+  };
+}
+var data = defaultData();
+var session = { ok:false };
+function migrateData(){
+  var changed=false;
+  if(!Array.isArray(data.wordBank)){ data.wordBank=[]; changed=true; }
+  if(!Array.isArray(data.lessons)){ data.lessons=[]; changed=true; }
+  if(!Array.isArray(data.students)){ data.students=[]; changed=true; }
+  if(!data.account){ data.account={pass:''}; changed=true; }
+  data.lessons.forEach(function(l){
+    if(!Array.isArray(l.words)){ l.words=[]; changed=true; }
+    if(!l.status){ l.status = l.endedAt ? 'done' : 'booked'; changed=true; }
+    if(l.status==='done' && !Array.isArray(l.review)){
+      l.review = (l.words && l.words.length) ? genReviewRounds(l.date) : [];
+      changed=true;
+    }
+  });
+  if(changed) saveData();
+}
+function addLog(type, text){ data.logs.unshift({time:nowStr(), type:type, text:text}); if(data.logs.length>3000) data.logs.length=3000; }
+
+/* ---------- 领域逻辑（纯函数，供测试） ---------- */
+/* 生成 21 天抗遗忘复习轮次（基于上课日期） */
+function genReviewRounds(baseDate){
+  var rounds=[];
+  for(var i=0;i<REVIEW_DAYS.length;i++){
+    rounds.push({offset:REVIEW_DAYS[i], dueDate:addDays(baseDate, REVIEW_DAYS[i]), done:false, doneAt:null});
+  }
+  return rounds;
+}
+/* Excel 行解析：自动识别表头（单词/中文列），无表头按前两列处理 */
+var EN_HEAD = /^(单词|词语|英文|英语|word|words|english|en)$/i;
+var CN_HEAD = /(中文|释义|意思|翻译|词义|cn|chinese)/i;
+function parseWordRows(rows){
+  var out=[], skipped=0, headerUsed=false, ei=0, ci=1;
+  if(!rows || !rows.length) return {words:[], skipped:0, headerUsed:false};
+  var first = rows[0]||[];
+  for(var c=0;c<first.length;c++){
+    var cell = String(first[c]==null?'':first[c]).trim();
+    if(EN_HEAD.test(cell)) ei=c;
+    if(CN_HEAD.test(cell)) ci=c;
+  }
+  if(EN_HEAD.test(String(first[ei]==null?'':first[ei]).trim())) headerUsed=true;
+  for(var r=(headerUsed?1:0); r<rows.length; r++){
+    var row = rows[r]||[];
+    var en = String(row[ei]==null?'':row[ei]).trim();
+    var cn = String(row[ci]==null?'':row[ci]).trim();
+    if(!en && !cn) continue;                       /* 整行空 → 跳过 */
+    if(!en || !/[a-zA-Z]/.test(en) || en.length>40){ skipped++; continue; }
+    var dup = false;
+    for(var k=0;k<out.length;k++){ if(out[k].en.toLowerCase()===en.toLowerCase()){ dup=true; break; } }
+    if(dup){ skipped++; continue; }
+    out.push({en:en, cn:cn});
+  }
+  return {words:out, skipped:skipped, headerUsed:headerUsed};
+}
+/* 粘贴导入：每行一个单词，支持「单词  中文」「单词,中文」「单词\t中文」 */
+function parsePasteText(txt){
+  var lines = String(txt||'').split(/\r?\n/);
+  var rows = lines.map(function(line){
+    var s = line.trim();
+    if(!s) return [];
+    var m = s.split(/\t+|,{1,}| {2,}|，/);
+    if(m.length===1) return [s, ''];
+    return [m[0].trim(), m.slice(1).join(' ').trim()];
+  });
+  return parseWordRows(rows);
+}
+/* 词库去重入库 */
+function dedupeAddWords(incoming){
+  var map = {};
+  data.wordBank.forEach(function(w){ if(w && w.en) map[String(w.en).toLowerCase()]=1; });
+  var added=0, skipped=0;
+  incoming.forEach(function(w){
+    if(!w || !w.en) return;
+    var key = String(w.en).toLowerCase();
+    if(map[key]){ skipped++; return; }
+    map[key]=1;
+    data.wordBank.push({id:uid(), en:w.en, cn:w.cn||'', addedAt:nowStr()});
+    added++;
+  });
+  return {added:added, skipped:skipped};
+}
+function getStudent(id){ for(var i=0;i<data.students.length;i++){ if(data.students[i].id===id) return data.students[i]; } return null; }
+function getLesson(id){ for(var i=0;i<data.lessons.length;i++){ if(data.lessons[i].id===id) return data.lessons[i]; } return null; }
+function studentName(lesson){ var s=getStudent(lesson.studentId); return s ? s.name : '（学生已删除）'; }
+/* 学生累计已上课时（节数） */
+function studentHours(studentId){
+  var n=0;
+  data.lessons.forEach(function(l){ if(l.studentId===studentId && l.status==='done') n++; });
+  return n;
+}
+/* 学生全部课程（按日期倒序） */
+function lessonsOf(studentId){
+  return data.lessons.filter(function(l){ return l.studentId===studentId; })
+    .sort(function(a,b){ return (b.date+(b.time||'')) .localeCompare(a.date+(a.time||'')); });
+}
+/* 某日期（含逾期）应复习的轮次列表：[{lesson, round, idx, late}] */
+function dueRoundItems(dateStr){
+  var items=[];
+  data.lessons.forEach(function(l){
+    if(l.status!=='done' || !l.words || !l.words.length || !Array.isArray(l.review)) return;
+    l.review.forEach(function(rd, idx){
+      if(!rd.done && rd.dueDate && rd.dueDate <= dateStr){
+        items.push({lesson:l, round:rd, idx:idx, late: rd.dueDate < dateStr});
+      }
+    });
+  });
+  items.sort(function(a,b){ return (a.round.dueDate+a.lesson.id).localeCompare(b.round.dueDate+b.lesson.id); });
+  return items;
+}
+/* 某日期已完成复习的轮次列表 */
+function doneRoundItems(dateStr){
+  var items=[];
+  data.lessons.forEach(function(l){
+    if(!Array.isArray(l.review)) return;
+    l.review.forEach(function(rd, idx){
+      if(rd.done && rd.doneAt && rd.doneAt.slice(0,10)===dateStr) items.push({lesson:l, round:rd, idx:idx});
+    });
+  });
+  return items;
+}
+/* 单节课复习进度 x/5 */
+function reviewProgress(lesson){
+  if(!lesson.review || !lesson.review.length) return {done:0,total:0};
+  var d=0;
+  lesson.review.forEach(function(r){ if(r.done) d++; });
+  return {done:d, total:lesson.review.length};
+}
+/* 下课后固化：记课时 + 生成抗遗忘 */
+function finalizeLesson(lesson, words){
+  lesson.words = words || lesson.words || [];
+  lesson.status = 'done';
+  lesson.endedAt = nowStr();
+  lesson.review = lesson.words.length ? genReviewRounds(lesson.date) : [];
+  return lesson.review;
+}
+
+/* ---------- 会话与解锁 ---------- */
+function boot(){
+  cloudFetchWithCache().then(function(blob){
+    if(blob && blob.accounts && blob.accounts.teacher){
+      cloud.blob = blob; cloud.lastPulledVer = blob.ver||'';
+      renderLock(false);
+    }else{
+      renderLock(true);
+    }
+  }).catch(function(){ renderLock(false); });
+}
+function renderLock(isFirst){
+  var h = '<div class="lock-wrap"><div class="lock-card">'
+    + '<h2>📖 单词课排课系统</h2>'
+    + '<div class="sub">排课 · 上课/下课 · 课时记录 · 单词21天抗遗忘</div>'
+    + (isFirst
+      ? '<div class="warn-tip">首次使用：请设置一个登录密码。<br>密码同时是云端数据的加密钥匙，<b>忘记无法找回</b>，请牢记并定期导出备份。</div>'
+        + '<label class="f">设置密码（至少4位）</label><input type="password" id="lk-p1">'
+        + '<label class="f">确认密码</label><input type="password" id="lk-p2">'
+        + '<div style="margin-top:16px"><button class="btn big" onclick="firstSetup()">创建并进入系统</button></div>'
+      : '<label class="f">登录密码</label><input type="password" id="lk-p1">'
+        + '<div class="err" id="lk-err"></div>'
+        + '<div style="margin-top:16px"><button class="btn big" onclick="tryUnlock()">登 录</button></div>')
+    + '</div></div>';
+  document.getElementById('app').innerHTML = h;
+}
+function lockErr(msg){ var e=document.getElementById('lk-err'); if(e){ e.style.display='block'; e.textContent=msg; } }
+function firstSetup(){
+  var p1=(document.getElementById('lk-p1').value||'').trim(), p2=(document.getElementById('lk-p2').value||'').trim();
+  if(p1.length<4){ lockErr('密码至少 4 位'); return; }
+  if(p1!==p2){ lockErr('两次输入的密码不一致'); return; }
+  data = defaultData();
+  data.account.pass = p1;
+  cloud.masterKey = CRYPTO.randomKey();
+  session.ok = true;
+  addLog('系统', '系统初始化完成');
+  saveData();
+  alert('✅ 创建成功！数据已加密保存在本机。\n\n建议：到「设置」里粘贴云端同步令牌，以后任何设备登录同一密码即可同步。');
+  renderApp('today');
+}
+function tryUnlock(){
+  var pass=(document.getElementById('lk-p1').value||'').trim();
+  if(!pass){ lockErr('请输入密码'); return; }
+  var blob = cloud.blob;
+  if(!blob){ lockErr('本机没有可解密的数据，请刷新页面'); return; }
+  CRYPTO.unwrapKey(pass, blob.accounts.teacher).then(function(mk){
+    return CRYPTO.decryptJson(blob, mk).then(function(d){
+      cloud.masterKey = mk;
+      data = d;
+      migrateData();
+      session.ok = true;
+      renderApp('today');
+    });
+  }).catch(function(){ lockErr('密码错误'); });
+}
+
+/* ---------- 主界面 ---------- */
+var view='today';
+var _lf = { studentId:'', status:'' };      /* 课程筛选 */
+var _bankQ = '';                            /* 词库搜索 */
+var _reviewDate = todayStr();               /* 抗遗忘查看日期 */
+var _picker = null;                          /* 单词选择器上下文 {ctx, words} */
+var _importPending = null;                  /* 待入库单词 */
+var _pasteOpen = false;
+
+function renderApp(v){
+  if(v) view=v;
+  var doneCnt=0; data.lessons.forEach(function(l){ if(l.status==='done') doneCnt++; });
+  var h = '<div class="header"><h1>📖 单词课排课系统</h1>'
+    + '<div class="hstat">学生 '+data.students.length+' · 词库 '+data.wordBank.length+' 词 · 已上 '+doneCnt+' 节课</div>'
+    + '<div class="sub" id="cloud-status">'+cloud.status+(cloud.blob?' · 云端版本 '+cloud.blob.ver:'')+'</div></div>'
+    + '<div class="nav">'
+    + '<button id="nv-today" onclick="renderApp(\'today\')">🏠 今日</button>'
+    + '<button id="nv-lessons" onclick="renderApp(\'lessons\')">📅 课程</button>'
+    + '<button id="nv-review" onclick="renderApp(\'review\')">⏰ 抗遗忘</button>'
+    + '<button id="nv-bank" onclick="renderApp(\'bank\')">📚 词库</button>'
+    + '<button id="nv-students" onclick="renderApp(\'students\')">👤 学生</button>'
+    + '<button id="nv-settings" onclick="renderApp(\'settings\')">⚙️ 设置</button>'
+    + '</div><div class="wrap" id="view"></div>'
+    + '<div id="modal" onclick="if(event.target===this) closeModal()"><div class="box" id="modal-box"></div></div>';
+  document.getElementById('app').innerHTML = h;
+  renderView();
+}
+function renderView(){
+  var navs = {today:1,lessons:1,review:1,bank:1,students:1,settings:1};
+  for(var k in navs){ var b=document.getElementById('nv-'+k); if(b) b.className = (view===k?'on':''); }
+  var el=document.getElementById('view');
+  if(view==='today') el.innerHTML = viewToday();
+  else if(view==='lessons') el.innerHTML = viewLessons();
+  else if(view==='review') el.innerHTML = viewReview();
+  else if(view==='bank') el.innerHTML = viewBank();
+  else if(view==='students') el.innerHTML = viewStudents();
+  else if(view==='settings') el.innerHTML = viewSettings();
+  window.scrollTo(0,0);
+}
+function statusBadge(l){
+  if(l.status==='booked') return '<span class="badge b-booked">📅 待上课</span>';
+  if(l.status==='ongoing') return '<span class="badge b-ongoing">🔴 上课中</span>';
+  if(l.status==='done') return '<span class="badge b-done">✅ 已上1节</span>';
+  return '<span class="badge b-canceled">已取消</span>';
+}
+function lessonCard(l, opts){
+  opts = opts||{};
+  var h = '<div class="lrow '+l.status+'"><div class="top"><div><span class="stu">'+esc(studentName(l))+'</span> '
+    + statusBadge(l) + '</div><span class="wnum">'+(l.words?l.words.length:0)+' 词</span></div>'
+    + '<div class="when">'+fmtShort(l.date)+(l.time?' '+l.time:'')+(l.note?' · '+esc(l.note):'')+'</div>';
+  if(opts.showWords && l.words && l.words.length){
+    h += '<div class="words-line">'+ l.words.slice(0,12).map(function(w){ return '<span class="chip">'+esc(w.en)+' <span class="cn">'+esc(w.cn)+'</span></span>'; }).join('')
+      + (l.words.length>12?' <span class="small">…共'+l.words.length+'词</span>':'') + '</div>';
+  }
+  if(l.status==='done' && l.words && l.words.length){
+    var p = reviewProgress(l);
+    h += '<div class="when">21天抗遗忘：'+p.done+'/'+p.total+' 轮'
+      + (p.done<p.total?'（下次 '+fmtShort(nextDue(l))+'）':'（已全部完成 🎉）')+'</div>';
+  }
+  h += '<div class="acts">';
+  if(l.status==='booked') h += '<button class="btn sm" onclick="startLesson(\''+l.id+'\')">▶ 上课</button>';
+  if(l.status==='booked'||l.status==='ongoing') h += '<button class="btn sm sub" onclick="openEditWords(\''+l.id+'\')">✎ 单词</button>';
+  if(l.status==='ongoing') h += '<button class="btn sm danger" onclick="openEndClass(\''+l.id+'\')">⏹ 下课</button>';
+  if(l.status==='done' && l.words && l.words.length) h += '<button class="btn sm sub" onclick="renderApp(\'review\');_reviewDate=todayStr();renderApp(\'review\')">⏰ 复习进度</button>';
+  if(l.status==='booked') h += '<button class="btn sm ghost" onclick="cancelLesson(\''+l.id+'\')">✕ 取消课</button>';
+  if(l.status==='canceled') h += '<button class="btn sm ghost" onclick="restoreLesson(\''+l.id+'\')">↩ 恢复预约</button>';
+  if(l.status!=='done') h += '<button class="btn sm ghost" onclick="delLesson(\''+l.id+'\')">🗑 删除</button>';
+  h += '</div></div>';
+  return h;
+}
+function nextDue(l){
+  if(!l.review) return '';
+  for(var i=0;i<l.review.length;i++){ if(!l.review[i].done) return l.review[i].dueDate; }
+  return '';
+}
+
+/* ---------- 视图：今日 ---------- */
+function viewToday(){
+  var today = todayStr();
+  var ongoing=[], dueToday=[], overdue=[];
+  data.lessons.forEach(function(l){
+    if(l.status==='ongoing') ongoing.push(l);
+    else if(l.status==='booked'){ if(l.date===today) dueToday.push(l); else if(l.date<today) overdue.push(l); }
+  });
+  var reviews = dueRoundItems(today);
+  var h = '<div class="stat-row">'
+    + '<div class="stat-cell warn"><div class="n">'+overdue.length+'</div><div class="t">逾期未上课</div></div>'
+    + '<div class="stat-cell"><div class="n">'+dueToday.length+'</div><div class="t">今日待上课</div></div>'
+    + '<div class="stat-cell warn"><div class="n">'+(ongoing.length?1:0)+'</div><div class="t">进行中</div></div>'
+    + '<div class="stat-cell ok"><div class="n">'+doneRoundItems(today).length+'</div><div class="t">今日已复习</div></div>'
+    + '</div>';
+  if(reviews.length){
+    h += '<div class="sec-tip">⏰ 今天该复习的单词（含逾期）· 共 '+reviews.length+' 组</div>';
+    h += reviews.map(function(it){ return reviewItemHTML(it, true); }).join('');
+  }
+  if(ongoing.length){
+    h += '<div class="sec-tip">🔴 上课中</div>' + ongoing.map(function(l){ return lessonCard(l,{showWords:true}); }).join('');
+  }
+  if(dueToday.length){
+    h += '<div class="sec-tip">📅 今天待上课</div>' + dueToday.map(function(l){ return lessonCard(l); }).join('');
+  }
+  if(overdue.length){
+    h += '<div class="sec-tip"><span class="overdue">⚠️ 逾期未上（可点✎改日期 或 ✕取消）</span></div>' + overdue.map(function(l){ return lessonCard(l); }).join('');
+  }
+  var doneToday = data.lessons.filter(function(l){ return l.status==='done' && l.endedAt && l.endedAt.slice(0,10)===today; });
+  if(doneToday.length){
+    h += '<div class="sec-tip">✅ 今天已下课 '+doneToday.length+' 节</div>' + doneToday.map(function(l){ return lessonCard(l); }).join('');
+  }
+  if(!dueToday.length && !overdue.length && !ongoing.length && !reviews.length && !doneToday.length){
+    h += '<div class="card"><div class="empty">今天没有排课，也没有到期的复习</div>'
+      + '<button class="btn big" onclick="openBooking()">＋ 预约排课</button></div>';
+  }
+  return h;
+}
+function reviewItemHTML(it, showStudent){
+  var l = it.lesson;
+  var tag = '<span class="round-tag'+(it.late?' hot':'')">'+(it.late?'逾期':'第'+(it.idx+1)+'轮')+' · 第'+it.round.offset+'天</span>';
+  var h = '<div class="review-item'+(it.late?' late':'')+'"><div class="top"><div><span class="stu">'+(showStudent?esc(studentName(l))+' · ':'')+fmtShort(l.date)+' 课</span> '+tag+'</div>'
+    + '<span class="small">'+(it.late?'原定 ':'') + fmtShort(it.round.dueDate)+'</span></div>'
+    + '<div style="margin-top:7px">'
+    + l.words.map(function(w){ return '<span class="chip">'+esc(w.en)+' <span class="cn">'+esc(w.cn)+'</span></span>'; }).join('')
+    + '</div>'
+    + '<div class="acts" style="margin-top:9px"><button class="btn sm" onclick="markRound(\''+l.id+'\','+it.idx+')">✔ 已完成这轮复习</button></div>'
+    + '</div>';
+  return h;
+}
+
+/* ---------- 视图：课程 ---------- */
+function viewLessons(){
+  var list = data.lessons.slice().sort(function(a,b){ return (b.date+(b.time||'')).localeCompare(a.date+(a.time||'')); });
+  if(_lf.studentId) list = list.filter(function(l){ return l.studentId===_lf.studentId; });
+  if(_lf.status) list = list.filter(function(l){ return l.status===_lf.status; });
+  var sopt = '<option value="">全部学生</option>' + data.students.map(function(s){ return '<option value="'+s.id+'"'+(_lf.studentId===s.id?' selected':'')+'>'+esc(s.name)+'</option>'; }).join('');
+  var stMap = [['','全部状态'],['booked','待上课'],['ongoing','上课中'],['done','已完成'],['canceled','已取消']];
+  var ssopt = stMap.map(function(x){ return '<option value="'+x[0]+'"'+(_lf.status===x[0]?' selected':'')+'>'+x[1]+'</option>'; }).join('');
+  var h = '<div class="card"><h3>📅 课程安排 <button class="btn" onclick="openBooking()">＋ 预约排课</button></h3>'
+    + '<div style="display:flex;gap:8px"><select style="margin-top:0" onchange="_lf.studentId=this.value;renderView()">'+sopt+'</select>'
+    + '<select style="margin-top:0" onchange="_lf.status=this.value;renderView()">'+ssopt+'</select></div></div>';
+  if(!list.length) h += '<div class="card"><div class="empty">暂无课程</div></div>';
+  h += list.map(function(l){ return lessonCard(l,{showWords:(l.status==='done')}); }).join('');
+  return h;
+}
+
+/* ---------- 视图：抗遗忘 ---------- */
+function viewReview(){
+  var d = _reviewDate;
+  var due = dueRoundItems(d);
+  var late = due.filter(function(x){ return x.late; });
+  var todayOnly = due.filter(function(x){ return !x.late; });
+  var doneList = doneRoundItems(d);
+  var h = '<div class="card"><h3>⏰ 21天抗遗忘复习</h3>'
+    + '<div class="small" style="margin-bottom:8px">节点：第 1 / 3 / 7 / 14 / 21 天各复习一次（下课自动生成）</div>'
+    + '<input type="date" value="'+d+'" onchange="_reviewDate=this.value;renderView()">'
+    + '</div>';
+  h += '<div class="stat-row">'
+    + '<div class="stat-cell warn"><div class="n">'+late.length+'</div><div class="t">逾期未复习</div></div>'
+    + '<div class="stat-cell"><div class="n">'+todayOnly.length+'</div><div class="t">当天应复习</div></div>'
+    + '<div class="stat-cell ok"><div class="n">'+doneList.length+'</div><div class="t">当天已完成</div></div>'
+    + '</div>';
+  if(late.length) h += '<div class="sec-tip"><span class="overdue">⚠️ 逾期未复习（建议尽快补上）</span></div>' + late.map(function(x){ return reviewItemHTML(x,true); }).join('');
+  if(todayOnly.length) h += '<div class="sec-tip">📌 '+fmtShort(d)+' 应复习</div>' + todayOnly.map(function(x){ return reviewItemHTML(x,true); }).join('');
+  if(doneList.length){
+    h += '<div class="sec-tip">✅ 当天已完成</div>' + doneList.map(function(it){
+      return '<div class="review-item finished"><div class="top"><div><span class="stu">'+esc(studentName(it.lesson))+'</span> <span class="round-tag">第'+(it.idx+1)+'轮 · 第'+it.round.offset+'天 ✔</span></div></div></div>';
+    }).join('');
+  }
+  /* 未来 14 天排期预览 */
+  var fut = [];
+  for(var i=1;i<=14;i++){
+    var dd = addDays(d, i);
+    data.lessons.forEach(function(l){
+      if(l.status!=='done' || !l.words || !l.words.length || !Array.isArray(l.review)) return;
+      l.review.forEach(function(rd){
+        if(!rd.done && rd.dueDate===dd) fut.push({lesson:l, round:rd, idx:dd});
+      });
+    });
+  }
+  if(fut.length){
+    h += '<div class="sec-tip">🗓 未来14天排期</div><div class="card">';
+    fut.forEach(function(f){
+      h += '<div class="when" style="padding:4px 0">· '+fmtShort(f.round.dueDate)+' '+esc(studentName(f.lesson))+'（'+f.lesson.words.length+'词 · 第'+f.round.offset+'天）</div>';
+    });
+    h += '</div>';
+  }
+  if(!late.length && !todayOnly.length && !doneList.length) h += '<div class="card"><div class="empty">这天没有复习任务</div></div>';
+  return h;
+}
+
+/* ---------- 视图：词库 ---------- */
+function viewBank(){
+  var q = _bankQ.trim().toLowerCase();
+  var list = data.wordBank;
+  if(q) list = data.wordBank.filter(function(w){ return (w.en||'').toLowerCase().indexOf(q)>=0 || (w.cn||'').indexOf(_bankQ.trim())>=0; });
+  var h = '<div class="card"><h3>📚 单词词库 <span class="small">'+data.wordBank.length+' 词</span></h3>'
+    + '<input type="text" placeholder="搜索单词 / 中文释义…" value="'+esc(_bankQ)+'" oninput="_bankQ=this.value;renderView()">'
+    + '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">'
+    + '<label class="btn" style="cursor:pointer">⬆ 上传Excel加单词<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importExcel(this)"></label>'
+    + '<button class="btn ghost" onclick="_pasteOpen=!_pasteOpen;renderView()">📋 粘贴导入</button>'
+    + '</div>'
+    + '<div class="small" style="margin-top:8px">Excel 格式：第一列「单词」，第二列「中文释义」；有表头（如“单词/中文”）也能自动识别，重复单词自动跳过</div>'
+    + '</div>';
+  if(_pasteOpen){
+    h += '<div class="card"><h3>📋 粘贴导入</h3>'
+      + '<textarea id="paste-txt" rows="6" placeholder="每行一个单词，格式：单词 + 空格/逗号 + 中文&#10;例如：abandon 放弃&#10;consider 考虑"></textarea>'
+      + '<div style="margin-top:10px"><button class="btn" onclick="importPaste()">解析并加入词库</button></div></div>';
+  }
+  if(!data.wordBank.length){
+    h += '<div class="card"><div class="empty">词库还是空的，先上传一个 Excel 单词表吧</div></div>';
+  }else{
+    var show = list.slice(0, 300);
+    h += '<div class="card"><h3>'+(q?'搜索结果':'最近单词')+' <span class="small">'+list.length+(list.length>300?'（仅显示前300）':'')+'</span></h3>'
+      + show.map(function(w){ return '<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #eef1f6;align-items:center"><div><b>'+esc(w.en)+'</b> <span class="small">'+esc(w.cn)+'</span></div><button class="btn sm ghost" onclick="delWord(\''+w.id+'\')">删</button></div>'; }).join('')
+      + '</div>';
+  }
+  return h;
+}
+
+/* ---------- 视图：学生 ---------- */
+function viewStudents(){
+  var h = '<div class="card"><h3>👤 学生管理</h3><div style="display:flex;gap:8px">'
+    + '<input type="text" id="new-stu" placeholder="学生姓名">'
+    + '<button class="btn" style="margin-top:0" onclick="addStudent()">＋ 添加</button></div></div>';
+  if(!data.students.length) h += '<div class="card"><div class="empty">还没有学生，先添加一个</div></div>';
+  data.students.forEach(function(s){
+    var ls = lessonsOf(s.id);
+    var doneN = studentHours(s.id);
+    var lastDone = '';
+    ls.forEach(function(l){ if(l.status==='done' && !lastDone) lastDone=l.date; });
+    h += '<div class="card"><h3>'+esc(s.name)
+      + ' <button class="btn sm ghost" onclick="delStudent(\''+s.id+'\')">删除</button></h3>'
+      + '<div class="small">累计上课 <b class="hl">'+doneN+'</b> 节 · 共排课 '+ls.length+' 节'+(lastDone?' · 最近上课 '+fmtShort(lastDone):'')+'</div>'
+      + (doneN>0?'<div class="small" style="margin-top:4px"><a href="javascript:void(0)" class="link-btn" onclick="_lf.studentId=\''+s.id+'\';_lf.status=\'done\';renderApp(\'lessons\')">查看已完成课程 →</a></div>':'')
+      + '</div>';
+  });
+  return h;
+}
+
+/* ---------- 视图：设置 ---------- */
+function viewSettings(){
+  var h = '<div class="card"><h3>☁️ 云端同步</h3><div id="cloud-status-box"><b>'+cloud.status+'</b>'+(cloud.blob?' · 云端版本 '+cloud.blob.ver:'')+'</div>'
+    + '<label class="f">云端写入令牌（GitHub PAT，粘贴一次保存在本机）</label>'
+    + '<input type="password" id="set-token" placeholder="ghp_…" value="'+esc(getWriteToken())+'">'
+    + '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'
+    + '<button class="btn" onclick="saveToken()">保存令牌</button>'
+    + '<button class="btn sub" onclick="manualSave()">立即上传</button>'
+    + '<button class="btn ghost" onclick="doPull()">从云端拉取</button>'
+    + '</div>'
+    + '<div class="small" style="margin-top:8px">数据端到端加密（AES-GCM），云端只存密文；登录密码即解密钥匙，丢失不可恢复，请定期导出备份。</div>'
+    + '</div>'
+    + '<div class="card"><h3>💾 备份</h3>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    + '<button class="btn sub" onclick="exportBackup()">导出备份(JSON)</button>'
+    + '<label class="btn ghost" style="cursor:pointer">导入备份<input type="file" accept=".json" style="display:none" onchange="importBackup(this)"></label>'
+    + '</div></div>'
+    + '<div class="card"><h3>🔑 修改密码</h3>'
+    + '<label class="f">当前密码</label><input type="password" id="pw-old">'
+    + '<label class="f">新密码（至少4位）</label><input type="password" id="pw-new">'
+    + '<div style="margin-top:12px"><button class="btn" onclick="changePass()">确认修改</button></div>'
+    + '<div class="small" style="margin-top:8px">修改后云端数据将用新密码重新加密，其他设备需用新密码登录。</div></div>'
+    + '<div class="card"><h3>ℹ️ 使用流程</h3><div class="small" style="line-height:1.9">'
+    + '1️⃣ 词库：上传 Excel 攒单词库（随时可传）<br>'
+    + '2️⃣ 排课：「课程 →＋预约排课」，选学生、时间，勾选本节课要教的单词（也可下课前再改）<br>'
+    + '3️⃣ 上课：到点点击【▶ 上课】<br>'
+    + '4️⃣ 下课：上完课点击【⏹ 下课】→ 系统自动记 1 节课，并按第 1/3/7/14/21 天生成抗遗忘复习<br>'
+    + '5️⃣ 复习：「⏰ 抗遗忘」按日期查看该复习的单词，复习完点【✔】</div></div>';
+  return h;
+}
+
+/* ---------- 排课表单 ---------- */
+function openBooking(){
+  if(!data.students.length){ alert('请先到「👤 学生」里添加学生'); renderApp('students'); return; }
+  _picker = { ctx:'new', words:[] };
+  var sopt = data.students.map(function(s){ return '<option value="'+s.id+'">'+esc(s.name)+'</option>'; }).join('');
+  openModal('<h3>＋ 预约排课</h3>'
+    + '<div class="small">一节课一个学生；单词现在不选也行，下课前点「✎ 单词」再补</div>'
+    + '<label class="f">学生</label><select id="bk-stu">'+sopt+'</select>'
+    + '<div style="display:flex;gap:10px"><div style="flex:1"><label class="f">日期</label><input type="date" id="bk-date" value="'+todayStr()+'"></div>'
+    + '<div style="flex:1"><label class="f">时间</label><input type="time" id="bk-time" value="18:00"></div></div>'
+    + '<label class="f">备注（可选）</label><input type="text" id="bk-note" placeholder="如：Unit 3 单词">'
+    + '<label class="f">本节课单词（从词库勾选）</label>'
+    + pickerHTML()
+    + '<div class="modal-foot"><button class="btn ghost" onclick="closeModal()">取消</button>'
+    + '<button class="btn" onclick="saveBooking()">保存排课</button></div>');
+}
+function pickerHTML(){
+  return '<div id="pk-chips"></div>'
+    + '<input type="text" id="pk-q" placeholder="搜索单词加入本节课…" oninput="pickerSearch(this.value)">'
+    + '<div class="sugg" id="pk-sugg"></div>';
+}
+function pickerSearch(q){
+  q = String(q||'').trim().toLowerCase();
+  var sugg = document.getElementById('pk-sugg'); if(!sugg) return;
+  var picked = {};
+  _picker.words.forEach(function(w){ picked[w.en.toLowerCase()]=1; });
+  var out=[], i=0;
+  while(i<data.wordBank.length && out.length<12){
+    var w = data.wordBank[i++];
+    if(picked[String(w.en).toLowerCase()]) continue;
+    if(q && (w.en||'').toLowerCase().indexOf(q)<0 && (w.cn||'').indexOf(q)<0) continue;
+    out.push(w);
+  }
+  if(!out.length){ sugg.innerHTML = '<div class="empty" style="padding:12px 0">'+(q?'没找到匹配单词':'词库为空，可先去「📚 词库」上传 Excel')+'</div>'; return; }
+  sugg.innerHTML = out.map(function(w){
+    return '<div class="it" onclick="pickerAdd(\''+esc(w.en).replace(/'/g,"\\'")+'\',\''+esc(w.cn).replace(/'/g,"\\'")+'\')"><b>'+esc(w.en)+'</b><span class="cn">'+esc(w.cn)+'</span><span style="color:#2f6bff">＋</span></div>';
+  }).join('');
+}
+function pickerAdd(en, cn){
+  for(var i=0;i<_picker.words.length;i++){ if(_picker.words[i].en.toLowerCase()===en.toLowerCase()) return; }
+  _picker.words.push({en:en, cn:cn||''});
+  pickerRefresh();
+}
+function pickerRemove(idx){ _picker.words.splice(idx,1); pickerRefresh(); }
+function pickerRefresh(){
+  var c = document.getElementById('pk-chips');
+  if(c) c.innerHTML = _picker.words.length
+    ? _picker.words.map(function(w,i){ return '<span class="chip">'+esc(w.en)+' <span class="cn">'+esc(w.cn)+'</span><span class="x" onclick="pickerRemove('+i+')">✕</span></span>'; }).join('')
+    : '<span class="small">未选单词</span>';
+  var q = document.getElementById('pk-q'); if(q){ q.value=''; }
+  pickerSearch('');
+}
+function saveBooking(){
+  var stuId = document.getElementById('bk-stu').value;
+  var date = document.getElementById('bk-date').value;
+  var time = document.getElementById('bk-time').value;
+  var note = (document.getElementById('bk-note').value||'').trim();
+  if(!stuId || !date){ alert('请选择学生和日期'); return; }
+  var l = { id:uid(), studentId:stuId, date:date, time:time, note:note,
+            status:'booked', words:_picker.words.slice(), startedAt:null, endedAt:null, review:[] };
+  data.lessons.push(l);
+  addLog('排课', studentName(l)+' '+date+(time?' '+time:'')+'（'+l.words.length+'词）');
+  saveData();
+  closeModal();
+  renderApp('lessons');
+}
+function startLesson(id){
+  var l = getLesson(id); if(!l) return;
+  if(l.status!=='booked') return;
+  l.status = 'ongoing';
+  l.startedAt = nowStr();
+  addLog('上课', studentName(l)+' '+l.date+' 开始上课');
+  saveData();
+  renderView();
+}
+function openEndClass(id){
+  var l = getLesson(id); if(!l) return;
+  if(l.status==='booked'){ startLesson(id); l=getLesson(id); }
+  if(l.status!=='ongoing') return;
+  _picker = { ctx:'end', lessonId:id, words:l.words.slice() };
+  openModal('<h3>⏹ 下课确认</h3>'
+    + '<div class="small">'+esc(studentName(l))+' · '+fmtShort(l.date)+(l.time?' '+l.time:'')
+    + ' · 开始于 '+esc((l.startedAt||'').slice(11,16))+'</div>'
+    + '<div class="warn-tip">点击确认后：系统记录 <b>已上 1 节课</b>，并把这节课的 '+(_picker.words.length)+' 个单词按 <b>第1/3/7/14/21天</b> 生成抗遗忘复习。</div>'
+    + '<label class="f">本节课单词（最后确认，可增删）</label>'
+    + pickerHTML()
+    + '<div class="modal-foot"><button class="btn ghost" onclick="closeModal()">继续上课</button>'
+    + '<button class="btn danger" onclick="confirmEndClass()">✔ 确认下课</button></div>');
+}
+function confirmEndClass(){
+  var l = getLesson(_picker.lessonId); if(!l){ closeModal(); return; }
+  if(!_picker.words.length && !confirm('本节课没有选择单词，确认下课吗？\n（将不生成抗遗忘复习）')) return;
+  finalizeLesson(l, _picker.words.slice());
+  addLog('下课', studentName(l)+' 完成第 '+studentHours(l.studentId)+' 节课（'+l.words.length+'词，已生成21天抗遗忘）');
+  saveData();
+  var nextTxt = l.review.length ? '复习安排：'+l.review.map(function(r){ return fmtShort(r.dueDate); }).join('、') : '';
+  closeModal();
+  renderView();
+  alert('✅ 已记录：'+studentName(l)+' 上了 1 节课。'+(nextTxt?'\n\n'+nextTxt:''));
+}
+function openEditWords(id){
+  var l = getLesson(id); if(!l) return;
+  if(l.status==='done'||l.status==='canceled') return;
+  _picker = { ctx:'edit', lessonId:id, words:l.words.slice() };
+  openModal('<h3>✎ 编辑本节课单词</h3>'
+    + '<div class="small">'+esc(studentName(l))+' · '+fmtShort(l.date)+'</div>'
+    + pickerHTML()
+    + '<div class="modal-foot"><button class="btn ghost" onclick="closeModal()">取消</button>'
+    + '<button class="btn" onclick="saveEditWords()">保存</button></div>');
+}
+function saveEditWords(){
+  var l = getLesson(_picker.lessonId); if(!l){ closeModal(); return; }
+  l.words = _picker.words.slice();
+  addLog('改单词', studentName(l)+' '+fmtShort(l.date)+' 课调整为 '+l.words.length+' 词');
+  saveData();
+  closeModal();
+  renderView();
+}
+function cancelLesson(id){
+  var l = getLesson(id); if(!l) return;
+  if(!confirm('确定取消这节课吗？\n'+studentName(l)+' '+l.date)) return;
+  l.status='canceled';
+  addLog('取消课', studentName(l)+' '+l.date+' 的课已取消');
+  saveData();
+  renderView();
+}
+function restoreLesson(id){
+  var l = getLesson(id); if(!l) return;
+  l.status='booked';
+  addLog('恢复课', studentName(l)+' '+l.date+' 的课已恢复预约');
+  saveData();
+  renderView();
+}
+function delLesson(id){
+  var l = getLesson(id); if(!l) return;
+  if(!confirm('确定删除这节课吗？删除后不可恢复。\n（已完成的课删除后课时记录也会减少）')) return;
+  data.lessons = data.lessons.filter(function(x){ return x.id!==id; });
+  addLog('删课', studentName(l)+' '+l.date+' 的课程记录已删除');
+  saveData();
+  renderView();
+}
+
+/* ---------- 复习打卡 ---------- */
+function markRound(lessonId, idx){
+  var l = getLesson(lessonId); if(!l || !l.review || !l.review[idx]) return;
+  l.review[idx].done = true;
+  l.review[idx].doneAt = nowStr();
+  addLog('复习', studentName(l)+' 完成第'+(idx+1)+'轮复习（第'+l.review[idx].offset+'天）');
+  saveData();
+  renderView();
+}
+
+/* ---------- 学生管理 ---------- */
+function addStudent(){
+  var name = (document.getElementById('new-stu').value||'').trim();
+  if(!name){ alert('请输入学生姓名'); return; }
+  data.students.push({id:uid(), name:name, note:'', createdAt:nowStr()});
+  addLog('学生', '添加学生：'+name);
+  saveData();
+  renderView();
+}
+function delStudent(id){
+  var s = getStudent(id); if(!s) return;
+  var n = lessonsOf(id).length;
+  if(!confirm('确定删除学生「'+s.name+'」吗？\n将同时删除 TA 的 '+n+' 条课程记录和复习进度，不可恢复！')) return;
+  data.students = data.students.filter(function(x){ return x.id!==id; });
+  data.lessons = data.lessons.filter(function(l){ return l.studentId!==id; });
+  addLog('学生', '删除学生：'+s.name+'（含 '+n+' 条课程记录）');
+  saveData();
+  renderView();
+}
+
+/* ---------- 词库导入 ---------- */
+function importExcel(inp){
+  var f = inp.files && inp.files[0];
+  inp.value='';
+  if(!f) return;
+  if(typeof XLSX==='undefined'){
+    alert('Excel 组件加载失败（需要联网首次加载）。\n请改用「📋 粘贴导入」，或刷新页面后再试。');
+    return;
+  }
+  var fr = new FileReader();
+  fr.onload = function(e){
+    var wb;
+    try{ wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'}); }
+    catch(err){ alert('文件读取失败：'+err.message); return; }
+    var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw:false});
+    var parsed = parseWordRows(rows);
+    if(!parsed.words.length){
+      alert('没有识别到有效单词。\n\n格式要求：第一列「单词」，第二列「中文释义」。有表头行（如：单词/中文）可自动识别并跳过。');
+      return;
+    }
+    _importPending = parsed.words;
+    openModal('<h3>⬆ 上传预览</h3>'
+      + '<div>共识别 <b class="hl">'+parsed.words.length+'</b> 个有效单词'+(parsed.skipped?'，跳过 '+parsed.skipped+' 行（空行/重复/非单词）':'')+'</div>'
+      + '<div class="small" style="margin-top:6px">（入库时还会与现有词库自动去重）</div>'
+      + '<div style="margin-top:8px"><pre class="bk">'+parsed.words.slice(0,30).map(function(w){ return esc(w.en)+'  '+esc(w.cn); }).join('\n')+(parsed.words.length>30?'\n… 共'+parsed.words.length+'个':'')+'</pre></div>'
+      + '<div class="modal-foot"><button class="btn ghost" onclick="closeModal()">取消</button>'
+      + '<button class="btn" onclick="confirmImportWords()">确认加入词库</button></div>');
+  };
+  fr.readAsArrayBuffer(f);
+}
+function confirmImportWords(){
+  if(!_importPending) return;
+  var r = dedupeAddWords(_importPending);
+  addLog('词库', 'Excel导入：新增 '+r.added+' 词，跳过重复 '+r.skipped+' 词（词库共 '+data.wordBank.length+' 词）');
+  saveData();
+  _importPending = null;
+  closeModal();
+  renderView();
+  alert('✅ 已加入词库：新增 '+r.added+' 个单词'+(r.skipped?'，跳过重复 '+r.skipped+' 个':'')+'\n当前词库共 '+data.wordBank.length+' 词。');
+}
+function importPaste(){
+  var txt = (document.getElementById('paste-txt').value||'').trim();
+  if(!txt){ alert('请先粘贴单词内容'); return; }
+  var parsed = parsePasteText(txt);
+  if(!parsed.words.length){ alert('没有识别到有效单词'); return; }
+  _importPending = parsed.words;
+  confirmImportWords();
+}
+function delWord(id){
+  var w=null;
+  data.wordBank.forEach(function(x){ if(x.id===id) w=x; });
+  if(!w) return;
+  if(!confirm('确定从词库删除「'+w.en+'」吗？（不影响已上过课的历史记录）')) return;
+  data.wordBank = data.wordBank.filter(function(x){ return x.id!==id; });
+  saveData();
+  renderView();
+}
+
+/* ---------- 设置动作 ---------- */
+function saveToken(){
+  var v = (document.getElementById('set-token').value||'').trim();
+  localStorage.setItem('wordlesson_write_token', v);
+  alert(v?'✅ 令牌已保存到本机':'已清空本机令牌');
+}
+function doPull(){
+  cloudFetch().then(function(blob){
+    if(!blob || !blob.accounts || !blob.accounts.teacher){ alert('云端没有数据'); return; }
+    return CRYPTO.decryptJson(blob, cloud.masterKey).then(function(remote){
+      cloud.blob = blob; cloud.lastPulledVer = blob.ver||'';
+      mergeCloudData(remote);
+      addLog('云同步', '已从云端拉取并合并（云端版本 '+blob.ver+'）');
+      saveData();
+      renderView();
+      alert('✅ 已从云端拉取并合并到本机');
+    });
+  }).catch(function(e){ alert('拉取失败：'+e.message); });
+}
+function exportBackup(){
+  var blobTxt = JSON.stringify(data);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([blobTxt], {type:'application/json'}));
+  a.download = '单词课排课系统备份_'+todayStr()+'.json';
+  a.click();
+}
+function importBackup(inp){
+  var f = inp.files && inp.files[0];
+  inp.value='';
+  if(!f) return;
+  var fr = new FileReader();
+  fr.onload = function(e){
+    var d;
+    try{ d = JSON.parse(e.target.result); }catch(err){ alert('文件不是有效的备份'); return; }
+    if(!d || !Array.isArray(d.students) || !Array.isArray(d.lessons)){ alert('备份内容不完整，拒绝导入'); return; }
+    if(!confirm('确定用备份覆盖当前数据吗？\n当前：'+data.students.length+'学生/'+data.wordBank.length+'词/'+data.lessons.length+'课\n备份：'+d.students.length+'学生/'+(d.wordBank?d.wordBank.length:0)+'词/'+d.lessons.length+'课')) return;
+    data = d;
+    migrateData();
+    session.ok = true;
+    addLog('备份', '已导入备份文件');
+    saveData();
+    renderView();
+    alert('✅ 备份已导入');
+  };
+  fr.readAsText(f);
+}
+function changePass(){
+  var oldp = document.getElementById('pw-old').value||'';
+  var np = (document.getElementById('pw-new').value||'').trim();
+  if(!cloud.blob || !cloud.blob.accounts){ alert('云端数据未加载'); return; }
+  if(np.length<4){ alert('新密码至少 4 位'); return; }
+  CRYPTO.unwrapKey(oldp, cloud.blob.accounts.teacher).then(function(){
+    data.account.pass = np;
+    cloud.wrapCache = {};
+    saveData(function(){
+      if(pushTimer) clearTimeout(pushTimer);
+      setTimeout(function(){ cloudPush(false); }, 400);
+    });
+    alert('✅ 密码已修改，正在用新密码重新加密上传云端');
+  }).catch(function(){ alert('当前密码不正确'); });
+}
+
+/* ---------- 弹窗 ---------- */
+function openModal(html){
+  var m = document.getElementById('modal');
+  document.getElementById('modal-box').innerHTML = html;
+  m.style.display='block';
+  if(typeof _picker!=='undefined' && _picker) pickerRefresh();
+}
+function closeModal(){
+  document.getElementById('modal').style.display='none';
+  _picker = null;
+  _importPending = null;
+}
+
+boot();
+</script>
+</body>
+</html>
