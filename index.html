@@ -1098,7 +1098,8 @@ function viewSettings(){
     + '<div class="card"><h3>🔊 朗读测试（背单词用）</h3>'
     + '<div class="small" style="margin-bottom:10px">点击单词卡片会调用浏览器内置 TTS 朗读英文。下面这个按钮用来检测你的浏览器是否有声音。</div>'
     + '<button class="btn sub" onclick="speakTest()">🔊 测试朗读</button> '
-    + '<span class="small">听不到声音？→ 检查系统音量；如系统是 Linux 或精简版 Windows，可能没装英文 TTS 引擎，换 Chrome / Edge / Safari 自带。</span></div>'
+    + '<button class="btn ghost" onclick="speakReset()">🔄 重置 TTS</button> '
+    + '<span class="small">听不到声音？先点「测试朗读」看弹窗；如弹窗显示 pending=true 一直不变或没声音，点「重置 TTS」。仍不行 → 检查系统音量；如系统是 Linux 或精简版 Windows，可能没装英文 TTS 引擎，换 Chrome / Edge / Safari 自带。</span></div>'
     + '<div class="card"><h3>💾 备份</h3>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
     + '<button class="btn sub" onclick="exportBackup()">导出备份(JSON)</button>'
@@ -1468,7 +1469,9 @@ function speakWord(en){
   if(!en) return;
   if(!_ttsReady()) return;
   if(_speakTimer){ clearTimeout(_speakTimer); _speakTimer=null; }
-  // 不立刻 cancel：让上一句在并发快速点击时仍能完整播完；50ms 延迟也避开 cancel+speak 抢队列
+  // Chrome 长跑后 TTS 会"假死"（API 还在但没声音），workaround：pause→resume→cancel
+  try{ window.speechSynthesis.pause(); }catch(e){}
+  try{ window.speechSynthesis.resume(); }catch(e){}
   _speakTimer = setTimeout(function(){
     try{ window.speechSynthesis.cancel(); }catch(e){}
     var u = new SpeechSynthesisUtterance(String(en));
@@ -1479,6 +1482,25 @@ function speakWord(en){
     try{ window.speechSynthesis.speak(u); }catch(e){}
   }, 30);
 }
+function speakReset(){
+  if(!_ttsReady()){ alert('当前浏览器不支持语音合成。'); return; }
+  try{ window.speechSynthesis.pause(); }catch(e){}
+  try{ window.speechSynthesis.resume(); }catch(e){}
+  setTimeout(function(){
+    try{ window.speechSynthesis.cancel(); }catch(e){}
+    _loadVoices();
+    var u = new SpeechSynthesisUtterance('Reset.');
+    var v = _pickVoice();
+    if(v) u.voice = v;
+    u.lang = v ? v.lang : 'en-US';
+    try{ window.speechSynthesis.speak(u); }catch(e){}
+  }, 60);
+}
+function _ttsStatus(){
+  if(!_ttsReady()) return '不支持';
+  var s = window.speechSynthesis;
+  return 'speaking=' + !!s.speaking + ' / pending=' + !!s.pending + ' / paused=' + !!s.paused + ' / voices=' + _voices.length;
+}
 function speakTest(){
   if(!_ttsReady()){ alert('当前浏览器不支持语音合成（无 speechSynthesis API）。建议换 Chrome / Edge / Safari。'); return; }
   if(_voices.length===0) _loadVoices();
@@ -1487,8 +1509,9 @@ function speakTest(){
   var listTxt = enList.length ? ('\n英文语音：' + enList.join(' / ')) : '\n（无英文语音）';
   speakWord('Hello, this is a speech test.');
   setTimeout(function(){
-    alert(info + listTxt + (enList.length ? '\n\n如果没听到声音，请检查系统音量/浏览器是否被静音。' : '\n\n需要装一个英文 TTS 引擎（见下方说明）。'));
-  }, 100);
+    var st = _ttsStatus();
+    alert(info + listTxt + '\n\n状态：' + st + '\n\n如果状态里 pending=true 一直不变，说明 TTS 引擎被卡住了，点下面的「重置 TTS」按钮。\n如果听不到声音，请检查系统音量/浏览器是否被静音（Chrome 标签页右键可解除静音）。');
+  }, 200);
 }
 
 /* ---- 词库来源与取词 ---- */
