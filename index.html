@@ -102,7 +102,7 @@ pre.bk{background:#f5f7fa;border-radius:10px;padding:10px;font-size:11px;overflo
 .sw.peek .sw-cn{display:block;}
 .sw.sel{border-color:#2f6bff;background:#eef3ff;}
 .sw.sel .sw-en{color:#2a4dbb;}
-.sw .sw-eye{margin-left:auto;color:#b9c1d0;font-size:15px;padding:0 3px;flex:none;}
+.sw .sw-check{flex:none;width:22px;height:22px;line-height:22px;text-align:center;border:1px solid #c4cddf;border-radius:6px;color:#2f6bff;font-size:14px;margin-right:4px;}
 .lc{background:#fff;border-radius:16px;padding:40px 18px;text-align:center;box-shadow:0 2px 10px rgba(28,35,51,.06);cursor:pointer;user-select:none;}
 .lc .lc-en{font-size:36px;font-weight:800;letter-spacing:.5px;word-break:break-word;line-height:1.25;}
 .lc .lc-cn{display:none;margin-top:18px;font-size:17px;color:#2a4dbb;font-weight:600;}
@@ -1433,6 +1433,18 @@ var _study = { stage:'home', src:'', pickSet:{}, pickN:10, words:[], idx:0, peek
 
 function studyKey(en){ return String(en==null?'':en).toLowerCase(); }
 
+/* 朗读与双击判断（背单词交互用） */
+var _lastClickAt = 0;
+function isDoubleClickGap(){ var now = Date.now(); var dbl = (now - _lastClickAt) < 320; _lastClickAt = now; return dbl; }
+function speakWord(en){
+  if(!en) return;
+  if(!('speechSynthesis' in window) || !window.speechSynthesis) return;
+  try{ window.speechSynthesis.cancel(); }catch(e){}
+  var u = new SpeechSynthesisUtterance(String(en));
+  u.lang = 'en-US';
+  try{ window.speechSynthesis.speak(u); }catch(e){}
+}
+
 /* ---- 词库来源与取词 ---- */
 function studySources(){
   var out=[];
@@ -1616,7 +1628,7 @@ function studyPickHTML(){
     + '<div style="flex:1;min-width:110px"><label class="f" style="margin-top:0">一次选几个（默认10）</label><input type="number" id="pk-n" min="1" max="300" value="'+(_study.pickN||10)+'"></div>'
     + '<button class="btn" onclick="studyAutoPick()">选 N 个未掌握</button>'
     + '<button class="btn ghost" onclick="_study.pickSet={};renderView()">清空</button></div>';
-  h+='<div class="warn-tip">点一下单词＝选中（不认识），再点一下取消。<b>双击单词</b>或点右侧 👁 可看中文释义。</div></div>';
+  h+='<div class="warn-tip"><b>点击单词</b>朗读并显示中文释义；<b>双击</b>隐藏释义。左侧 ☑/☐ 用来选中不认识的单词。</div></div>';
   h+='<div class="card"><h3>全部单词 <span class="small">共 '+lib.length+' 词</span></h3>';
   if(!lib.length){
     h+='<div class="empty">这个来源没有单词</div>';
@@ -1625,10 +1637,11 @@ function studyPickHTML(){
     lib.forEach(function(w,i){
       if(w.unit && w.unit!==lastUnit){ lastUnit=w.unit; h+='<div class="sec-tip">'+esc(w.unit)+'</div>'; }
       var kk=studyKey(w.en);
-      h+='<div class="sw'+(picked[kk]!=null?' sel':'')+'" id="sw'+i+'" onclick="studyTogglePick('+i+')" ondblclick="studyPeekSw('+i+')">'
+      h+='<div class="sw'+(picked[kk]!=null?' sel':'')+'" id="sw'+i+'" onclick="studySpeakAndPeek('+i+')" ondblclick="studyHideCn('+i+')">'
+        + '<span class="sw-check" onclick="event.stopPropagation();studyTogglePick('+i+')">'+(picked[kk]!=null?'☑':'☐')+'</span>'
         + '<span class="sw-en">'+esc(w.en)+'</span>'
         + '<span class="sw-cn">'+esc(w.cn||'')+'</span>'
-        + '<span class="sw-eye" onclick="event.stopPropagation();studyPeekSw('+i+')">👁</span></div>';
+        + '</div>';
     });
   }
   h+='</div>';
@@ -1647,12 +1660,21 @@ function studyTogglePick(i){
     var peek=el.className.indexOf('peek')>=0;
     var has=(_study.pickSet[k]!=null);
     el.className='sw'+(has?' sel':'')+(peek?' peek':'');
+    var chk=el.querySelector('.sw-check'); if(chk) chk.textContent = has ? '☑' : '☐';
   }
   studyPickCount();
 }
-function studyPeekSw(i){
+function studySpeakAndPeek(i){
+  if(isDoubleClickGap()) return;
+  var lib=studyLibWords(_study.src||studyDefaultSrc());
+  var w=lib[i]; if(!w) return;
+  var el=document.getElementById('sw'+i);
+  if(el && el.className.indexOf('peek')<0) el.className += ' peek';
+  speakWord(w.en);
+}
+function studyHideCn(i){
   var el=document.getElementById('sw'+i); if(!el) return;
-  el.className = (el.className.indexOf('peek')>=0) ? el.className.replace(/\s*peek/,'') : (el.className+' peek');
+  el.className = el.className.replace(/\s*peek/,'');
 }
 function studyPickCount(){
   var c=document.getElementById('pk-cnt'); if(!c) return;
@@ -1669,7 +1691,9 @@ function studyAutoPick(){
   lib.forEach(function(w,i2){
     var e=document.getElementById('sw'+i2); if(!e) return;
     var peek=e.className.indexOf('peek')>=0;
-    e.className='sw'+( _study.pickSet[studyKey(w.en)]!=null ? ' sel':'' )+(peek?' peek':'');
+    var has=(_study.pickSet[studyKey(w.en)]!=null);
+    e.className='sw'+(has?' sel':'')+(peek?' peek':'');
+    var chk=e.querySelector('.sw-check'); if(chk) chk.textContent=has?'☑':'☐';
   });
   studyPickCount();
 }
@@ -1703,18 +1727,25 @@ function studyLearnHTML(){
   var w=list[i], peeked=(_study.peek===i);
   return '<div class="card"><h3>② 新词学习 <span class="small">'+(i+1)+' / '+list.length+'</span>'
     + '<button class="btn sm ghost" onclick="studyFinishLearn()">结束</button></h3>'
-    + '<div class="lc'+(peeked?' peek':'')+'" ondblclick="studyTogglePeek()">'
+    + '<div class="lc'+(peeked?' peek':'')+'" onclick="studySpeakAndPeekCard()" ondblclick="studyHideCnCard()">'
     + '<div class="lc-en">'+esc(w.en)+'</div>'
     + '<div class="lc-cn">'+esc(w.cn||'（无释义）')+'</div>'
-    + '<div class="small" style="margin-top:16px">'+(peeked?'双击收起释义':'双击单词显示中文释义')+'</div>'
+    + '<div class="small" style="margin-top:16px">'+(peeked?'双击隐藏中文释义':'点击卡片朗读并显示中文释义')+'</div>'
     + '</div>'
     + '<div style="display:flex;gap:8px;margin-top:14px">'
     + '<button class="btn ghost" style="flex:1" onclick="studyNav(-1)"'+(i<=0?' disabled':'')+'>← 上一个</button>'
-    + '<button class="btn sub" style="flex:1" onclick="studyTogglePeek()">看释义</button>'
+    + '<button class="btn sub" style="flex:1" onclick="studySpeakAndPeekCard()">朗读+释义</button>'
     + '<button class="btn" style="flex:1" onclick="studyNav(1)"'+(i>=list.length-1?' disabled':'')+'>下一个 →</button>'
     + '</div></div>';
 }
-function studyTogglePeek(){ _study.peek = (_study.peek===_study.idx) ? -1 : _study.idx; renderView(); }
+function studySpeakAndPeekCard(){
+  if(isDoubleClickGap()) return;
+  _study.peek = _study.idx;
+  renderView();
+  var w=(_study.words||[])[_study.idx];
+  if(w) speakWord(w.en);
+}
+function studyHideCnCard(){ _study.peek = -1; renderView(); }
 function studyNav(d){ _study.idx=(_study.idx||0)+d; _study.peek=-1; renderView(); }
 function studyFinishLearn(){
   var list=_study.words||[];
@@ -1752,12 +1783,12 @@ function studyReviewHTML(){
   list.forEach(function(w){ var r=res[studyKey(w.en)]; if(r==='know') known++; else if(r==='unknown') unknown++; });
   var h='<div class="card"><h3>③ 抗遗忘复习 <span class="small">'+(known+unknown)+' / '+list.length+'</span>'
     + '<button class="btn sm ghost" onclick="studyExit()">退出</button></h3>'
-    + '<div class="small">认识 → 点 ✅；不认识 → 点 ❌。<b>双击单词</b>看中文释义。</div>'
+    + '<div class="small">认识 → 点 ✅；不认识 → 点 ❌。<b>点击单词</b>朗读并显示中文释义，<b>双击</b>隐藏释义。</div>'
     + '<div class="sbar"><span class="sb g">✅ 认识 <b id="sr-know">'+known+'</b></span><span class="sb r">❌ 不认识 <b id="sr-no">'+unknown+'</b></span></div></div>';
   h+='<div class="card">';
   h+=list.map(function(w,i){
     var r=res[studyKey(w.en)]||'';
-    return '<div class="rw'+(r==='know'?' ok':(r==='unknown'?' no':''))+'" id="rw'+i+'" ondblclick="studyPeekRow('+i+')">'
+    return '<div class="rw'+(r==='know'?' ok':(r==='unknown'?' no':''))+'" id="rw'+i+'" onclick="studySpeakAndPeekRow('+i+')" ondblclick="studyHideCnRow('+i+')">'
       + '<span class="rw-n">'+(i+1)+'</span>'
       + '<span class="rw-en">'+esc(w.en)+'</span>'
       + '<span class="rw-cn">'+esc(w.cn||'')+'</span>'
@@ -1768,9 +1799,16 @@ function studyReviewHTML(){
   h+='<div style="margin-top:12px"><button class="btn big" id="sr-sub" onclick="studySubmitReview()">提交本轮复习</button></div></div>';
   return h;
 }
-function studyPeekRow(i){
+function studySpeakAndPeekRow(i){
+  if(isDoubleClickGap()) return;
   var el=document.getElementById('rw'+i); if(!el) return;
-  el.className = (el.className.indexOf('peek')>=0) ? el.className.replace(/\s*peek/,'') : (el.className+' peek');
+  if(el.className.indexOf('peek')<0) el.className += ' peek';
+  var w=(_study.words||[])[i];
+  if(w) speakWord(w.en);
+}
+function studyHideCnRow(i){
+  var el=document.getElementById('rw'+i); if(!el) return;
+  el.className = el.className.replace(/\s*peek/,'');
 }
 function studyAnswer(i, r){
   var w=(_study.words||[])[i]; if(!w) return;
