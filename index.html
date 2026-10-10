@@ -89,7 +89,6 @@ pre.bk{background:#f5f7fa;border-radius:10px;padding:10px;font-size:11px;overflo
 </head>
 <body>
 <div id="app"></div>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="window._xlsxFailed=1"></script>
 <script>
 /* =========================================================
    单词课排课系统（教师端·云同步版）
@@ -163,8 +162,16 @@ var CRYPTO = {
 
 /* ---------- 云同步状态 ---------- */
 var cloud = { blob:null, status:'未同步', pendingPush:false, pushing:false, masterKey:null, wrapCache:{}, lastSync:'', lastPulledVer:'', lastPushError:'' };
+/* 云端加密层说明：Excel 解析组件不再在头部同步加载（国内 CDN 慢会卡白屏），改为导入时按需加载 */
+var FETCH_TIMEOUT_MS = 9000;
+function fetchTimeout(url){
+  return Promise.race([
+    fetch(url, {cache:'no-store'}),
+    new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('请求超时')); }, FETCH_TIMEOUT_MS); })
+  ]);
+}
 function cloudFetchOne(url){
-  return fetch(url + (url.indexOf('?')<0?'?t=':'&t=') + Date.now(), {cache:'no-store'}).then(function(r){
+  return fetchTimeout(url + (url.indexOf('?')<0?'?t=':'&t=') + Date.now()).then(function(r){
     if(!r.ok) throw new Error('HTTP '+r.status);
     return r.text();
   }).then(function(txt){
@@ -499,7 +506,47 @@ function finalizeLesson(lesson, words){
 }
 
 /* ---------- 会话与解锁 ---------- */
+function showLoading(){
+  document.getElementById('app').innerHTML = '<div class="lock-wrap"><div class="lock-card" style="text-align:center">'
+    + '<h2>📖 单词课排课系统</h2>'
+    + '<div class="sub" style="margin-top:10px">正在加载'+'……'+'</div>'
+    + '<div class="small" style="margin-top:6px">首次访问或网络较慢时，可能需要等待十几秒</div>'
+    + '</div></div>';
+}
 function boot(){
+  showLoading();
+  /* 本机有加密缓存 → 秒开登录页，云端版本后台静默校验 */
+  var cached = localStorage.getItem('wordlesson_cloud_cache');
+  if(cached){
+    try{
+      var blob = JSON.parse(cached);
+      if(blob && blob.accounts && blob.accounts.teacher){
+        cloud.blob = blob;
+        cloud.lastPulledVer = blob.ver||'';
+        cloud.status='使用本机缓存';
+        renderLock(false);
+        /* 后台静默拉取云端：有更新则替换密文（登录后自动解到最新） */
+        cloudFetch().then(function(nb){
+          if(nb && nb.ver && nb.ver !== cloud.blob.ver){
+            cloud.blob = nb; cloud.lastPulledVer = nb.ver||'';
+            cloud.status='已同步（云端有新版本）';
+            if(session.ok && cloud.masterKey){
+              return CRYPTO.decryptJson(nb, cloud.masterKey).then(function(rd){
+                mergeCloudData(rd);
+                saveData();
+                renderCloudStatus();
+              });
+            }
+          }else{
+            cloud.status='已同步';
+          }
+          renderCloudStatus();
+        }).catch(function(){ cloud.status='离线（使用本机缓存）'; renderCloudStatus(); });
+        return;
+      }
+    }catch(e){}
+  }
+  /* 无缓存：走云端拉取（每个通道最多 9 秒超时，全部失败也照常进入首用/登录页） */
   cloudFetchWithCache().then(function(blob){
     if(blob && blob.accounts && blob.accounts.teacher){
       cloud.blob = blob; cloud.lastPulledVer = blob.ver||'';
@@ -995,34 +1042,53 @@ function delStudent(id){
 }
 
 /* ---------- 词库导入 ---------- */
+/* Excel 解析组件按需加载（不在页面头部同步加载，避免国内 CDN 慢导致白屏）；jsdelivr 失败自动换 unpkg */
+function loadScript(src, cb){
+  var s = document.createElement('script');
+  s.src = src;
+  s.onload = function(){ cb(true); };
+  s.onerror = function(){ cb(false); };
+  document.head.appendChild(s);
+}
+function ensureXlsx(cb){
+  if(typeof XLSX !== 'undefined'){ cb(true); return; }
+  loadScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js', function(ok){
+    if(ok && typeof XLSX !== 'undefined'){ cb(true); return; }
+    loadScript('https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js', function(ok2){
+      cb(!!(ok2 && typeof XLSX !== 'undefined'));
+    });
+  });
+}
 function importExcel(inp){
   var f = inp.files && inp.files[0];
   inp.value='';
   if(!f) return;
-  if(typeof XLSX==='undefined'){
-    alert('Excel 组件加载失败（需要联网首次加载）。\n请改用「📋 粘贴导入」，或刷新页面后再试。');
-    return;
-  }
-  var fr = new FileReader();
-  fr.onload = function(e){
-    var wb;
-    try{ wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'}); }
-    catch(err){ alert('文件读取失败：'+err.message); return; }
-    var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw:false});
-    var parsed = parseWordRows(rows);
-    if(!parsed.words.length){
-      alert('没有识别到有效单词。\n\n格式要求：第一列「单词」，第二列「中文释义」。有表头行（如：单词/中文）可自动识别并跳过。');
+  ensureXlsx(function(ok){
+    if(!ok){
+      alert('Excel 解析组件加载失败（需要联网）。\n请稍后重试，或改用「📋 粘贴导入」：把 Excel 内容复制粘贴进来也可以。');
       return;
     }
-    _importPending = parsed.words;
-    openModal('<h3>⬆ 上传预览</h3>'
-      + '<div>共识别 <b class="hl">'+parsed.words.length+'</b> 个有效单词'+(parsed.skipped?'，跳过 '+parsed.skipped+' 行（空行/重复/非单词）':'')+'</div>'
-      + '<div class="small" style="margin-top:6px">（入库时还会与现有词库自动去重）</div>'
-      + '<div style="margin-top:8px"><pre class="bk">'+parsed.words.slice(0,30).map(function(w){ return esc(w.en)+'  '+esc(w.cn); }).join('\n')+(parsed.words.length>30?'\n… 共'+parsed.words.length+'个':'')+'</pre></div>'
-      + '<div class="modal-foot"><button class="btn ghost" onclick="closeModal()">取消</button>'
-      + '<button class="btn" onclick="confirmImportWords()">确认加入词库</button></div>');
-  };
-  fr.readAsArrayBuffer(f);
+    var fr = new FileReader();
+    fr.onload = function(e){
+      var wb;
+      try{ wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'}); }
+      catch(err){ alert('文件读取失败：'+err.message); return; }
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw:false});
+      var parsed = parseWordRows(rows);
+      if(!parsed.words.length){
+        alert('没有识别到有效单词。\n\n格式要求：第一列「单词」，第二列「中文释义」。有表头行（如：单词/中文）可自动识别并跳过。');
+        return;
+      }
+      _importPending = parsed.words;
+      openModal('<h3>⬆ 上传预览</h3>'
+        + '<div>共识别 <b class="hl">'+parsed.words.length+'</b> 个有效单词'+(parsed.skipped?'，跳过 '+parsed.skipped+' 行（空行/重复/非单词）':'')+'</div>'
+        + '<div class="small" style="margin-top:6px">（入库时还会与现有词库自动去重）</div>'
+        + '<div style="margin-top:8px"><pre class="bk">'+parsed.words.slice(0,30).map(function(w){ return esc(w.en)+'  '+esc(w.cn); }).join('\n')+(parsed.words.length>30?'\n… 共'+parsed.words.length+'个':'')+'</pre></div>'
+        + '<div class="modal-foot"><button class="btn ghost" onclick="closeModal()">取消</button>'
+        + '<button class="btn" onclick="confirmImportWords()">确认加入词库</button></div>');
+    };
+    fr.readAsArrayBuffer(f);
+  });
 }
 function confirmImportWords(){
   if(!_importPending) return;
