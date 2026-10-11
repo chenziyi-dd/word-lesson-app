@@ -127,7 +127,8 @@ pre.bk{background:#f5f7fa;border-radius:10px;padding:10px;font-size:11px;overflo
 /* =========================================================
    单词课排课系统（教师端·云同步版）
    流程：登录 → 预约排课（按学生，一节课一个学生）
-        → 点击【上课】→ 上完课点击【下课】
+        → 点击【上课】→ 进入背单词选词，选出的词=本节课单词
+        → 学习页上课（点击朗读/双击看释义）→ 学完点击【下课】
         → 系统自动记录 1 节课 + 本节课单词生成 21 天抗遗忘复习
         → 【加入新单词】上传 Excel 即入词库
    数据存储：GitHub 数据仓库 + AES-GCM 端到端加密（同教培系统模式）
@@ -906,7 +907,7 @@ function lessonCard(l, opts){
   }
   h += '<div class="acts">';
   if(l.status==='booked') h += '<button class="btn sm" onclick="startLesson(\''+l.id+'\')">▶ 上课</button>';
-  if(l.status==='booked'||l.status==='ongoing') h += '<button class="btn sm sub" onclick="openEditWords(\''+l.id+'\')">✎ 单词</button>';
+  if(l.status==='ongoing') h += '<button class="btn sm sub" onclick="lessonStudyEnter(\''+l.id+'\')">📖 学单词</button>';
   if(l.status==='ongoing') h += '<button class="btn sm danger" onclick="openEndClass(\''+l.id+'\')">⏹ 下课</button>';
   if(l.status==='done' && l.words && l.words.length) h += '<button class="btn sm sub" onclick="renderApp(\'review\');_reviewDate=todayStr();renderApp(\'review\')">⏰ 复习进度</button>';
   if(l.status==='booked') h += '<button class="btn sm ghost" onclick="cancelLesson(\''+l.id+'\')">✕ 取消课</button>';
@@ -1112,26 +1113,24 @@ function viewSettings(){
     + '<div class="small" style="margin-top:8px">修改后云端数据将用新密码重新加密，其他设备需用新密码登录。</div></div>'
     + '<div class="card"><h3>ℹ️ 使用流程</h3><div class="small" style="line-height:1.9">'
     + '1️⃣ 词库：上传 Excel 攒单词库（随时可传）<br>'
-    + '2️⃣ 排课：「课程 →＋预约排课」，选学生、时间，勾选本节课要教的单词（也可下课前再改）<br>'
-    + '3️⃣ 上课：到点点击【▶ 上课】<br>'
-    + '4️⃣ 下课：上完课点击【⏹ 下课】→ 系统自动记 1 节课，并按第 1/3/7/14/21 天生成抗遗忘复习<br>'
-    + '5️⃣ 复习：「⏰ 抗遗忘」按日期查看该复习的单词，复习完点【✔】</div></div>';
+    + '2️⃣ 排课：「课程 →＋预约排课」，只选学生和时间（单词不用提前选）<br>'
+    + '3️⃣ 上课：到点点击【▶ 上课】→ 自动进入背单词选词页，勾选本节课要教的单词 → 点「确定本节课单词」<br>'
+    + '4️⃣ 上课中：学习页可点击单词朗读、双击看释义；学完点「✔ 学完了」<br>'
+    + '5️⃣ 下课：点【⏹ 下课】→ 系统自动记 1 节课，并按第 1/3/7/14/21 天生成抗遗忘复习<br>'
+    + '6️⃣ 复习：「⏰ 抗遗忘」按日期查看该复习的单词，复习完点【✔】</div></div>';
   return h;
 }
 
 /* ---------- 排课表单 ---------- */
 function openBooking(){
   if(!data.students.length){ alert('请先到「👤 学生」里添加学生'); renderApp('students'); return; }
-  _picker = { ctx:'new', words:[] };
   var sopt = data.students.map(function(s){ return '<option value="'+s.id+'">'+esc(s.name)+'</option>'; }).join('');
   openModal('<h3>＋ 预约排课</h3>'
-    + '<div class="small">一节课一个学生；单词现在不选也行，下课前点「✎ 单词」再补</div>'
+    + '<div class="small">一节课一个学生；单词不用提前选，点【▶ 上课】时再选</div>'
     + '<label class="f">学生</label><select id="bk-stu">'+sopt+'</select>'
     + '<div style="display:flex;gap:10px"><div style="flex:1"><label class="f">日期</label><input type="date" id="bk-date" value="'+todayStr()+'"></div>'
     + '<div style="flex:1"><label class="f">时间</label><input type="time" id="bk-time" value="18:00"></div></div>'
     + '<label class="f">备注（可选）</label><input type="text" id="bk-note" placeholder="如：Unit 3 单词">'
-    + '<label class="f">本节课单词（从词库勾选）</label>'
-    + pickerHTML()
     + '<div class="modal-foot"><button class="btn ghost" onclick="closeModal()">取消</button>'
     + '<button class="btn" onclick="saveBooking()">保存排课</button></div>');
 }
@@ -1178,25 +1177,31 @@ function saveBooking(){
   var note = (document.getElementById('bk-note').value||'').trim();
   if(!stuId || !date){ alert('请选择学生和日期'); return; }
   var l = { id:uid(), studentId:stuId, date:date, time:time, note:note,
-            status:'booked', words:_picker.words.slice(), startedAt:null, endedAt:null, review:[] };
+            status:'booked', words:[], startedAt:null, endedAt:null, review:[] };
   data.lessons.push(l);
-  addLog('排课', studentName(l)+' '+date+(time?' '+time:'')+'（'+l.words.length+'词）');
+  addLog('排课', studentName(l)+' '+date+(time?' '+time:'')+'（单词上课时再选）');
   saveData();
   closeModal();
   renderApp('lessons');
 }
-function startLesson(id){
-  var l = getLesson(id); if(!l) return;
-  if(l.status!=='booked') return;
+/* 只改状态：把预约的课标记为开始（不跳选词，下课流程内部用） */
+function lessonStartOnly(id){
+  var l = getLesson(id); if(!l || l.status!=='booked') return;
   l.status = 'ongoing';
   l.startedAt = nowStr();
   addLog('上课', studentName(l)+' '+l.date+' 开始上课');
+}
+/* 点【▶ 上课】：标记开始 + 直接进入背单词选词（为本节课选词） */
+function startLesson(id){
+  var l = getLesson(id); if(!l) return;
+  if(l.status!=='booked') return;
+  lessonStartOnly(id);
   saveData();
-  renderView();
+  lessonStudyEnter(id);
 }
 function openEndClass(id){
   var l = getLesson(id); if(!l) return;
-  if(l.status==='booked'){ startLesson(id); l=getLesson(id); }
+  if(l.status==='booked'){ lessonStartOnly(id); l=getLesson(id); saveData(); }
   if(l.status!=='ongoing') return;
   _picker = { ctx:'end', lessonId:id, words:l.words.slice() };
   openModal('<h3>⏹ 下课确认</h3>'
@@ -1216,26 +1221,9 @@ function confirmEndClass(){
   saveData();
   var nextTxt = l.review.length ? '复习安排：'+l.review.map(function(r){ return fmtShort(r.dueDate); }).join('、') : '';
   closeModal();
-  renderView();
+  if(_study.ctx==='lesson'){ _study.ctx=''; _study.lessonId=''; _study.stage='home'; _study.peek=-1; renderApp('lessons'); }
+  else renderView();
   alert('✅ 已记录：'+studentName(l)+' 上了 1 节课。'+(nextTxt?'\n\n'+nextTxt:''));
-}
-function openEditWords(id){
-  var l = getLesson(id); if(!l) return;
-  if(l.status==='done'||l.status==='canceled') return;
-  _picker = { ctx:'edit', lessonId:id, words:l.words.slice() };
-  openModal('<h3>✎ 编辑本节课单词</h3>'
-    + '<div class="small">'+esc(studentName(l))+' · '+fmtShort(l.date)+'</div>'
-    + pickerHTML()
-    + '<div class="modal-foot"><button class="btn ghost" onclick="closeModal()">取消</button>'
-    + '<button class="btn" onclick="saveEditWords()">保存</button></div>');
-}
-function saveEditWords(){
-  var l = getLesson(_picker.lessonId); if(!l){ closeModal(); return; }
-  l.words = _picker.words.slice();
-  addLog('改单词', studentName(l)+' '+fmtShort(l.date)+' 课调整为 '+l.words.length+' 词');
-  saveData();
-  closeModal();
-  renderView();
 }
 function cancelLesson(id){
   var l = getLesson(id); if(!l) return;
@@ -1434,7 +1422,7 @@ function changePass(){
    背单词模块：① 选词 → ② 新词学习 → ③ 抗遗忘复习
    核心规则：默认只显示英文，双击单词才显示中文释义
    ========================================================= */
-var _study = { stage:'home', src:'', pickSet:{}, pickN:10, words:[], idx:0, peek:-1, results:{}, result:null };
+var _study = { stage:'home', src:'', pickSet:{}, pickN:10, words:[], idx:0, peek:-1, results:{}, result:null, ctx:'', lessonId:'' };
 
 function studyKey(en){ return String(en==null?'':en).toLowerCase(); }
 
@@ -1633,10 +1621,23 @@ function studyAddSession(type, list, results){
 
 /* ---- 视图 ---- */
 function viewStudy(){
-  var st=studyStats();
-  var h='<div class="card"><h3>🧠 背单词</h3>'
-    + '<div class="small">规则：<b>默认只显示英文</b>，双击单词才显示中文释义</div>'
-    + '<div class="sbar"><span class="sb">已学 '+st.learned+' 词</span><span class="sb g">已掌握 '+st.mastered+'</span><span class="sb r">需加强 '+st.weak+'</span></div></div>';
+  var h;
+  if(_study.ctx==='lesson'){
+    var ll=getLesson(_study.lessonId);
+    var wn=(ll&&ll.words)?ll.words.length:0;
+    h='<div class="card"><h3>📖 正在上课 · '+esc(ll?studentName(ll):'')+'</h3>'
+      + '<div class="small">'+(ll?fmtShort(ll.date)+(ll.time?' '+ll.time:''):'')+' · 本节课已选 <b class="hl">'+wn+'</b> 个单词</div>'
+      + '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">'
+      + '<button class="btn sub" onclick="lessonStudyEnter(\''+(_study.lessonId||'')+'\')">📖 '+(wn?'继续学单词':'选词')+'</button>'
+      + '<button class="btn danger" onclick="openEndClass(\''+(_study.lessonId||'')+'\')">⏹ 去下课</button>'
+      + '<button class="btn ghost" onclick="studyExit()">返回课程列表</button>'
+      + '</div></div>';
+  }else{
+    var st=studyStats();
+    h='<div class="card"><h3>🧠 背单词</h3>'
+      + '<div class="small">规则：<b>默认只显示英文</b>，双击单词才显示中文释义</div>'
+      + '<div class="sbar"><span class="sb">已学 '+st.learned+' 词</span><span class="sb g">已掌握 '+st.mastered+'</span><span class="sb r">需加强 '+st.weak+'</span></div></div>';
+  }
   if(_study.stage==='pick') h+=studyPickHTML();
   else if(_study.stage==='learn') h+=studyLearnHTML();
   else if(_study.stage==='review') h+=studyReviewHTML();
@@ -1679,15 +1680,55 @@ function studyHomeHTML(){
   }
   return h;
 }
+/* ---------- 上课模式：从背单词模块选词，选出的词就是本节课单词 ---------- */
+/* 进入上课学词：有词 → 学习页；无词 → 选词页 */
+function lessonStudyEnter(id){
+  var l=getLesson(id); if(!l || l.status!=='ongoing'){ renderApp('lessons'); return; }
+  if(!_study.src) _study.src=studyDefaultSrc();
+  _study.ctx='lesson'; _study.lessonId=id; _study.pickSet={}; _study.peek=-1; _study.result=null;
+  if(l.words && l.words.length){
+    _study.words=l.words.map(function(w){ return {en:w.en, cn:w.cn||''}; });
+    _study.idx=0; _study.stage='learn';
+  }else{
+    _study.words=[]; _study.idx=0; _study.stage='pick';
+  }
+  renderApp('study');
+}
+/* 选词页点「确定本节课单词」：写入课程 + 直接进入新词学习 */
+function studyConfirmLessonWords(){
+  var l=getLesson(_study.lessonId); if(!l){ studyExit(); return; }
+  var lib=studyLibWords(_study.src||studyDefaultSrc());
+  var keys=[]; for(var k in _study.pickSet){ if(Object.prototype.hasOwnProperty.call(_study.pickSet,k)) keys.push(k); }
+  if(!keys.length){ alert('还没有选单词。\n点单词左侧 ☑ 选中要教的词，或点「选 N 个未掌握」。'); return; }
+  keys.sort(function(a,b){ return _study.pickSet[a]-_study.pickSet[b]; });
+  var list=keys.map(function(k){ var w=lib[_study.pickSet[k]]; return {en:w.en, cn:w.cn||'', unit:w.unit||''}; });
+  l.words=list;
+  addLog('上课', studentName(l)+' 本节课选定 '+list.length+' 个单词');
+  saveData();
+  _study.words=list.map(function(w){ return {en:w.en, cn:w.cn||''}; });
+  _study.idx=0; _study.peek=-1; _study.pickSet={}; _study.stage='learn';
+  renderView();
+  window.scrollTo(0,0);
+}
+/* 学习页点「← 重选」：回到选词页重新挑 */
+function studyLessonRePick(){
+  _study.pickSet={}; _study.idx=0; _study.peek=-1; _study.stage='pick';
+  renderView();
+  window.scrollTo(0,0);
+}
 /* ① 选词 */
 function studyOpenPick(){ if(!_study.src) _study.src=studyDefaultSrc(); _study.stage='pick'; renderView(); }
 function studyPickHTML(){
+  var isLesson=(_study.ctx==='lesson');
+  var ll=isLesson?getLesson(_study.lessonId):null;
   var srcs=studySources();
   var src=_study.src || studyDefaultSrc();
   var lib=studyLibWords(src);
   var picked=_study.pickSet||{};
   var n=0; for(var k in picked){ if(Object.prototype.hasOwnProperty.call(picked,k)) n++; }
-  var h='<div class="card"><h3>① 选词 <button class="btn sm ghost" onclick="studyExit()">返回</button></h3>';
+  var h='<div class="card"><h3>'+(isLesson?('① 为本节课选词 · '+esc(ll?studentName(ll):'')):'① 选词')
+    + ' <button class="btn sm ghost" onclick="studyExit()">'+(isLesson?'返回课程':'返回')+'</button></h3>'
+    +(isLesson?('<div class="small">'+(ll?fmtShort(ll.date)+(ll.time?' '+ll.time:''):'')+' · 选好后点底部「确定本节课单词」，这批词就是本节课要学的词</div>'):'');
   h+='<label class="f">词库来源（按顺序加载全部单词）</label>'
     + '<select onchange="_study.src=this.value;_study.pickSet={};renderView()">'
     + (srcs.length ? srcs.map(function(s){ return '<option value="'+s.id+'"'+(src===s.id?' selected':'')+'>'+esc(s.name)+'</option>'; }).join('')
@@ -1716,7 +1757,10 @@ function studyPickHTML(){
   h+='</div>';
   h+='<div class="card" style="position:sticky;bottom:6px;box-shadow:0 -2px 12px rgba(28,35,51,.10)"><div style="display:flex;gap:10px;align-items:center">'
     + '<div style="flex:1" class="small">已选 <b class="hl" id="pk-cnt">'+n+'</b> 个单词</div>'
-    + '<button class="btn" onclick="studyMakeRound()">生成本轮清单</button></div></div>';
+    + (isLesson
+        ? '<button class="btn" onclick="studyConfirmLessonWords()">确定本节课单词</button>'
+        : '<button class="btn" onclick="studyMakeRound()">生成本轮清单</button>')
+    + '</div></div>';
   return h;
 }
 function studyTogglePick(i){
@@ -1792,10 +1836,13 @@ function studyStartLearn(){
 function studyLearnHTML(){
   var list=_study.words||[];
   if(!list.length) return studyBackCard('没有可学习的单词');
+  var isLesson=(_study.ctx==='lesson');
+  var ll=isLesson?getLesson(_study.lessonId):null;
   var i=Math.max(0, Math.min(_study.idx||0, list.length-1)); _study.idx=i;
   var w=list[i], peeked=(_study.peek===i);
-  return '<div class="card"><h3>② 新词学习 <span class="small">'+(i+1)+' / '+list.length+'</span>'
-    + '<button class="btn sm ghost" onclick="studyFinishLearn()">结束</button></h3>'
+  return '<div class="card"><h3>'+(isLesson?('② 上课学单词 · '+esc(ll?studentName(ll):'')):'② 新词学习')+' <span class="small">'+(i+1)+' / '+list.length+'</span>'
+    + (isLesson?'<button class="btn sm ghost" onclick="studyLessonRePick()">← 重选</button>':'')
+    + '<button class="btn sm ghost" onclick="studyFinishLearn()">'+(isLesson?'✔ 学完了':'结束')+'</button></h3>'
     + '<div class="lc'+(peeked?' peek':'')+'" onclick="studySpeakAndPeekCard()" ondblclick="studyHideCnCard()">'
     + '<div class="lc-en">'+esc(w.en)+'</div>'
     + '<div class="lc-cn">'+esc(w.cn||'（无释义）')+'</div>'
@@ -1818,14 +1865,22 @@ function studyHideCnCard(){ _study.peek = -1; renderView(); }
 function studyNav(d){ _study.idx=(_study.idx||0)+d; _study.peek=-1; renderView(); }
 function studyFinishLearn(){
   var list=_study.words||[];
+  var isLesson=(_study.ctx==='lesson');
   list.forEach(function(w){ studyTouch(w.en, w.cn, true); });
   if(list.length){
     studyAddSession('learn', list, null);
-    addLog('背单词', '新词学习 '+list.length+' 词');
+    addLog('背单词', (isLesson?'上课学习':'新词学习')+' '+list.length+' 词');
     saveData();
   }
-  _study.stage='home'; _study.peek=-1;
-  renderView();
+  _study.peek=-1;
+  if(isLesson){
+    _study.ctx=''; _study.lessonId=''; _study.stage='home';
+    renderApp('lessons');
+    if(list.length) alert('✅ 本节课 '+list.length+' 个单词已记录。\n点【⏹ 下课】结束这节课，系统会按第 1/3/7/14/21 天生成抗遗忘复习。');
+  }else{
+    _study.stage='home';
+    renderView();
+  }
 }
 /* ③ 抗遗忘复习 */
 function studyStartReview(){
@@ -1936,7 +1991,12 @@ function studyRetryWrong(){
   _study.words=r.wrong.slice(); _study.results={}; _study.peek=-1; _study.result=null; _study.stage='review';
   renderView();
 }
-function studyExit(){ _study.stage='home'; _study.peek=-1; _study.result=null; renderView(); window.scrollTo(0,0); }
+function studyExit(){
+  var isLesson=(_study.ctx==='lesson');
+  _study.stage='home'; _study.peek=-1; _study.result=null; _study.ctx=''; _study.lessonId='';
+  if(isLesson) renderApp('lessons'); else renderView();
+  window.scrollTo(0,0);
+}
 function studyClearRound(){
   if(!confirm('确定清空本轮学习清单吗？\n（已学、已掌握单词的进度不受影响）')) return;
   data.studyRound=null;
